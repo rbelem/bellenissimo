@@ -87,7 +87,7 @@ RecipeImportResult importRecipeJson(String source) {
   } catch (_) {
     return const RecipeImportResult(null, [ImportIssue('Malformed JSON')]);
   }
-  if (decoded is Map && _hasRecipeType(decoded)) {
+  if (decoded is Map && _hasType(decoded, 'recipe')) {
     return _importRecipeNode(decoded);
   }
   final node = _findRecipe(decoded);
@@ -109,11 +109,11 @@ Map<dynamic, dynamic>? _findRecipe(Object? decoded) {
     return null;
   }
   if (decoded is! Map) return null;
-  if (_hasRecipeType(decoded)) return decoded;
+  if (_hasType(decoded, 'recipe')) return decoded;
   final graph = decoded['@graph'];
   if (graph is List) {
     for (final node in graph) {
-      if (node is Map && _hasRecipeType(node)) return node;
+      if (node is Map && _hasType(node, 'recipe')) return node;
     }
   }
   return _nodeWithIngredients(decoded);
@@ -152,6 +152,8 @@ RecipeImportResult _importRecipeNode(Map<dynamic, dynamic> node) {
     issues.add(const ImportIssue('Missing recipeIngredient array'));
   }
 
+  final steps = _parseSteps(node['recipeInstructions'], issues);
+
   if (!hasName || lines.isEmpty) {
     return RecipeImportResult(null, issues);
   }
@@ -160,9 +162,51 @@ RecipeImportResult _importRecipeNode(Map<dynamic, dynamic> node) {
     issues.add(const ImportIssue('Missing or unparseable recipeYield'));
   }
   return RecipeImportResult(
-    Recipe(name: name, yield: yieldSpec ?? const YieldSpec(), lines: lines),
+    Recipe(
+      name: name,
+      yield: yieldSpec ?? const YieldSpec(),
+      lines: lines,
+      steps: steps,
+    ),
     issues,
   );
+}
+
+List<String> _parseSteps(Object? raw, List<ImportIssue> issues) {
+  if (raw == null) return const [];
+  if (raw is String) return [raw];
+  if (raw is! List) {
+    issues.add(const ImportIssue('Unsupported instruction shape'));
+    return const [];
+  }
+  final steps = <String>[];
+  for (final item in raw) {
+    final step = _parseStep(item, issues);
+    if (step != null) steps.add(step);
+  }
+  return steps;
+}
+
+String? _parseStep(Object? item, List<ImportIssue> issues) {
+  if (item is String) return item;
+  if (item is! Map) {
+    issues.add(const ImportIssue('Unsupported instruction shape'));
+    return null;
+  }
+  if (_hasType(item, 'howtosection')) {
+    issues.add(const ImportIssue('Instruction section not supported'));
+    return null;
+  }
+  if (!_hasType(item, 'howtostep')) {
+    issues.add(const ImportIssue('Unsupported instruction shape'));
+    return null;
+  }
+  final text = item['text'];
+  if (text is! String || text.trim().isEmpty) {
+    issues.add(const ImportIssue('Instruction missing text'));
+    return null;
+  }
+  return text;
 }
 
 YieldSpec? _parseYield(Object? raw) {
@@ -205,11 +249,11 @@ double? _mergedMassGrams(String token) {
   return null;
 }
 
-bool _hasRecipeType(Map<dynamic, dynamic> node) {
-  final type = node['@type'];
-  if (type is String) return type.toLowerCase() == 'recipe';
-  if (type is List) {
-    return type.any((t) => t is String && t.toLowerCase() == 'recipe');
+bool _hasType(Map<dynamic, dynamic> node, String type) {
+  final raw = node['@type'];
+  if (raw is String) return raw.toLowerCase() == type;
+  if (raw is List) {
+    return raw.any((t) => t is String && t.toLowerCase() == type);
   }
   return false;
 }

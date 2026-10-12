@@ -382,4 +382,155 @@ void main() {
       expect(result.issues, hasLength(3));
     });
   });
+
+  group('step import', () {
+    test('absent instructions leave steps empty with no issues', () {
+      final result = importDoc({
+        'name': 'Plain',
+        'recipeYield': '1 bowl',
+        'recipeIngredient': ['2 eggs'],
+        'recipeInstructions': ?null,
+      });
+      expect(result.ok, isTrue);
+      expect(result.recipe!.steps, isEmpty);
+      expect(result.issues, isEmpty);
+    });
+
+    test('single string instruction becomes one step', () {
+      final result = importDoc({
+        'name': 'Porridge',
+        'recipeYield': '1 bowl',
+        'recipeIngredient': ['2 eggs'],
+        'recipeInstructions': 'Boil the eggs.',
+      });
+      expect(result.recipe!.steps, ['Boil the eggs.']);
+      expect(result.issues, isEmpty);
+    });
+
+    test('list of plain strings keeps order', () {
+      final result = importDoc({
+        'name': 'Cookies',
+        'recipeYield': '24 cookies',
+        'recipeIngredient': ['2 eggs'],
+        'recipeInstructions': ['Mix.', 'Chill.', 'Bake.'],
+      });
+      expect(result.recipe!.steps, ['Mix.', 'Chill.', 'Bake.']);
+      expect(result.issues, isEmpty);
+    });
+
+    test('HowToStep maps use their text in order', () {
+      final result = importDoc({
+        'name': 'Cookies',
+        'recipeYield': '24 cookies',
+        'recipeIngredient': ['2 eggs'],
+        'recipeInstructions': [
+          {
+            '@type': 'HowToStep',
+            'text': 'Preheat the oven.',
+          },
+          {
+            '@type': 'HowToStep',
+            'text': 'Bake for 12 minutes.',
+          },
+        ],
+      });
+      expect(result.recipe!.steps, ['Preheat the oven.', 'Bake for 12 minutes.']);
+      expect(result.issues, isEmpty);
+    });
+
+    test('mixed list keeps supported shapes in order and reports two issues', () {
+      final result = importDoc({
+        'name': 'Cake',
+        'recipeYield': '1 cake',
+        'recipeIngredient': ['2 eggs'],
+        'recipeInstructions': [
+          'Melt the butter.',
+          {'@type': 'HowToStep', 'text': 'Stir in the flour.'},
+          {'@type': 'HowToSection', 'name': 'Glaze'},
+          42,
+          {'@type': 'HowToStep', 'text': 'Bake.'},
+        ],
+      });
+      expect(
+        result.recipe!.steps,
+        ['Melt the butter.', 'Stir in the flour.', 'Bake.'],
+      );
+      final messages = result.issues.map((issue) => issue.message);
+      expect(messages, hasLength(2));
+      expect(messages, contains(contains('section not supported')));
+      expect(messages, contains(contains('instruction shape')));
+    });
+
+    test('HowToStep without usable text is skipped with an issue', () {
+      for (final badText in [null, '', '   ']) {
+        final result = importDoc({
+          'name': 'Cookies',
+          'recipeYield': '24 cookies',
+          'recipeIngredient': ['2 eggs'],
+          'recipeInstructions': [
+            {
+              '@type': 'HowToStep',
+              'text': ?badText,
+            },
+          ],
+        });
+        expect(result.recipe!.steps, isEmpty, reason: '$badText');
+        expect(result.issues.single.message, contains('missing text'),
+            reason: '$badText');
+      }
+    });
+
+    test('"@type" given as a list containing HowToStep works', () {
+      final result = importDoc({
+        'name': 'Pancakes',
+        'recipeYield': '8 pancakes',
+        'recipeIngredient': ['2 eggs'],
+        'recipeInstructions': [
+          {
+            '@type': ['HowToStep'],
+            'text': 'Whisk the batter.',
+          },
+        ],
+      });
+      expect(result.recipe!.steps, ['Whisk the batter.']);
+      expect(result.issues, isEmpty);
+    });
+
+    test('"@type" case-insensitive HowToStep works', () {
+      final result = importDoc({
+        'name': 'Pancakes',
+        'recipeYield': '8 pancakes',
+        'recipeIngredient': ['2 eggs'],
+        'recipeInstructions': [
+          {'@type': 'howtostep', 'text': 'Fold in the blueberries.'},
+        ],
+      });
+      expect(result.recipe!.steps, ['Fold in the blueberries.']);
+      expect(result.issues, isEmpty);
+    });
+
+    test('map without a known instruction type is unsupported', () {
+      final result = importDoc({
+        'name': 'Stew',
+        'recipeYield': '4 bowls',
+        'recipeIngredient': ['2 eggs'],
+        'recipeInstructions': [
+          {'water': 'first', 'time': '10 min'},
+        ],
+      });
+      expect(result.recipe!.steps, isEmpty);
+      expect(result.issues.single.message, contains('instruction shape'));
+    });
+
+    test('non-list, non-string instructions report an issue', () {
+      final result = importDoc({
+        'name': 'Mystery',
+        'recipeYield': '1 serving',
+        'recipeIngredient': ['2 eggs'],
+        'recipeInstructions': 42,
+      });
+      expect(result.recipe!.steps, isEmpty);
+      expect(result.issues.single.message, contains('instruction shape'));
+    });
+  });
 }
