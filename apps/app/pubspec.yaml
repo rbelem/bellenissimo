@@ -30,14 +30,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  # NOTE: resolving this relative path requires apps/app to be a workspace
-  # member: add `- apps/app` to the `workspace:` list in the repo-root
-  # pubspec.yaml AND `resolution: workspace` to this pubspec. Until then pub
-  # refuses the relative path to the workspace member ("could not find package
-  # bellenissimos_core"); local dev relies on a gitignored
-  # pubspec_overrides.yaml pointing at the absolute path.
   bellenissimos_core:
-    path: ../packages/core
+    path: ../../packages/core
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
