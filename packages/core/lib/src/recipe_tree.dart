@@ -1,0 +1,79 @@
+import 'recipe.dart';
+
+/// One part of a compound dish: either a bare ingredient line or a
+/// reference to a whole sub-recipe.
+sealed class RecipeComponent {
+  const RecipeComponent();
+}
+
+/// A direct ingredient line, scaled like any [RecipeLine].
+class ComponentLeaf extends RecipeComponent {
+  const ComponentLeaf(this.line);
+
+  final RecipeLine line;
+}
+
+/// A whole sub-recipe used as one component. [recipe] must declare a yield
+/// of exactly one unit of the component (one crust, one filling batch);
+/// [factor] adapts it to this build.
+class ComponentRef extends RecipeComponent {
+  const ComponentRef(this.recipe, {required this.factor});
+
+  final Recipe recipe;
+  final double factor;
+}
+
+/// A dish assembled from components: a pie is a crust plus a filling,
+/// a layered cake is stacked sponge and filling refs.
+class RecipeTree {
+  const RecipeTree({required this.name, required this.components});
+
+  final String name;
+  final List<RecipeComponent> components;
+
+  /// Scales every component. A [ComponentRef]'s recipe scales by the
+  /// compound factor (ref factor times tree factor) in exactly one
+  /// [Recipe.scaledBy] pass: that pass applies ingredient rounding steps,
+  /// so scaling in two steps would round twice and snap eggs wrong.
+  RecipeTree scaledBy(num factor) => RecipeTree(
+        name: name,
+        components: [
+          for (final component in components)
+            switch (component) {
+              ComponentLeaf(:final line) => ComponentLeaf(line.scaledBy(factor)),
+              ComponentRef(recipe: final recipe, factor: final refFactor) =>
+                ComponentRef(
+                  recipe.scaledBy(refFactor * factor),
+                  factor: refFactor * factor,
+                ),
+            },
+        ],
+      );
+}
+
+/// Builds an N-layer cake: one sponge ref per layer, one filling ref
+/// between adjacent layers, and the topping on top when given.
+///
+/// [sponge] must yield one layer, [filling] the filling between two
+/// adjacent layers, [topping] one cake's top. [spongeFactorPerLayer] is
+/// the pan-volume ratio of the target pan.
+RecipeTree layeredCake({
+  required Recipe sponge,
+  required Recipe filling,
+  Recipe? topping,
+  required int layers,
+  required double spongeFactorPerLayer,
+}) {
+  if (layers < 2) {
+    throw ArgumentError('A layered cake needs at least two layers');
+  }
+  return RecipeTree(
+    name: 'layered cake ($layers layers)',
+    components: [
+      for (var i = 0; i < layers; i++)
+        ComponentRef(sponge, factor: spongeFactorPerLayer),
+      for (var i = 0; i < layers - 1; i++) ComponentRef(filling, factor: 1.0),
+      if (topping != null) ComponentRef(topping, factor: 1.0),
+    ],
+  );
+}
