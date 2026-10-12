@@ -161,4 +161,155 @@ void main() {
       expect(eggRef.recipe.lines[1].quantity.amount, 1.0);
     });
   });
+
+  group('replaceRecipe', () {
+    final butterCookies = Recipe(
+      id: 'cookies',
+      name: 'butter cookies',
+      yield: const YieldSpec(count: 24),
+      lines: [
+        const RecipeLine(
+          Ingredient('butter', gramsPerMl: 0.95),
+          Quantity(200, Unit.g),
+        ),
+      ],
+    );
+
+    final eggFreeCookies = Recipe(
+      id: 'cookies-egg-free',
+      parentId: 'cookies',
+      name: 'egg-free cookies',
+      yield: const YieldSpec(count: 24, totalGrams: 480),
+      lines: [
+        const RecipeLine(
+          Ingredient('flax gel', gramsPerMl: 1.0),
+          Quantity(30, Unit.g),
+        ),
+      ],
+      steps: const ['bloom flax', 'mix', 'chill'],
+    );
+
+    final shortening = Recipe(
+      id: 'shortening',
+      name: 'shortening cookies',
+      yield: const YieldSpec(count: 24),
+      lines: [
+        const RecipeLine(
+          Ingredient('shortening', gramsPerMl: 0.9),
+          Quantity(200, Unit.g),
+        ),
+      ],
+    );
+
+    test('replaces the one matching ref, keeping its factor', () {
+      final tree = RecipeTree(name: 'cookie box', components: [
+        ComponentRef(butterCookies, factor: 2.5),
+      ]);
+
+      final replaced = tree.replaceRecipe('cookies', eggFreeCookies);
+
+      final ref = replaced.components.single as ComponentRef;
+      expect(identical(ref.recipe, eggFreeCookies), isTrue);
+      expect(ref.factor, 2.5);
+      expect(
+        (tree.components.single as ComponentRef).recipe,
+        same(butterCookies),
+      );
+    });
+
+    test('replaces every matching ref, leaves others and leaves untouched', () {
+      final tree = RecipeTree(name: 'cookie pyramid', components: [
+        ComponentRef(butterCookies, factor: 1.0),
+        const ComponentLeaf(
+          RecipeLine(Ingredient('sugar', gramsPerMl: 0.85), Quantity(100, Unit.g)),
+        ),
+        ComponentRef(butterCookies, factor: 0.5),
+        ComponentRef(shortening, factor: 1.0),
+      ]);
+
+      final replaced = tree.replaceRecipe('cookies', eggFreeCookies);
+
+      expect(replaced.components, hasLength(4));
+      expect(
+        (replaced.components[0] as ComponentRef).recipe,
+        same(eggFreeCookies),
+      );
+      expect((replaced.components[0] as ComponentRef).factor, 1.0);
+      expect(replaced.components[1], isA<ComponentLeaf>());
+      expect(
+        (replaced.components[1] as ComponentLeaf).line.quantity.amount,
+        100,
+      );
+      expect(
+        (replaced.components[2] as ComponentRef).recipe,
+        same(eggFreeCookies),
+      );
+      expect((replaced.components[2] as ComponentRef).factor, 0.5);
+      expect(
+        (replaced.components[3] as ComponentRef).recipe,
+        same(shortening),
+      );
+    });
+
+    test('no matching ref returns an equal-structure tree', () {
+      final tree = RecipeTree(name: 'cookie box', components: [
+        ComponentRef(shortening, factor: 2.0),
+        const ComponentLeaf(
+          RecipeLine(Ingredient('salt'), Quantity(1, Unit.g)),
+        ),
+      ]);
+
+      final replaced = tree.replaceRecipe('cookies', eggFreeCookies);
+
+      expect(replaced.name, 'cookie box');
+      expect(replaced.components, hasLength(2));
+      expect(
+        (replaced.components[0] as ComponentRef).recipe,
+        same(shortening),
+      );
+      expect((replaced.components[0] as ComponentRef).factor, 2.0);
+      expect(replaced.components[1], isA<ComponentLeaf>());
+      expect(replaced.components, isNot(same(tree.components)));
+    });
+
+    test('replacement keeps its own id, yield and steps unscaled', () {
+      final tree = RecipeTree(name: 'cookie box', components: [
+        ComponentRef(butterCookies, factor: 3.0),
+      ]);
+
+      final replaced = tree.replaceRecipe('cookies', eggFreeCookies);
+
+      final ref = replaced.components.single as ComponentRef;
+      expect(ref.recipe.id, 'cookies-egg-free');
+      expect(ref.recipe.parentId, 'cookies');
+      expect(ref.recipe.yield.count, 24);
+      expect(ref.recipe.yield.totalGrams, 480);
+      expect(ref.recipe.steps, ['bloom flax', 'mix', 'chill']);
+      expect(ref.recipe.lines.single.quantity.amount, 30);
+      expect(ref.factor, 3.0);
+    });
+
+    test('a ref whose recipe has a null id never matches', () {
+      final anonymous = Recipe(
+        name: 'ad-hoc cookies',
+        yield: const YieldSpec(count: 24),
+        lines: [
+          const RecipeLine(
+            Ingredient('butter', gramsPerMl: 0.95),
+            Quantity(200, Unit.g),
+          ),
+        ],
+      );
+      final tree = RecipeTree(name: 'cookie box', components: [
+        ComponentRef(anonymous, factor: 1.0),
+      ]);
+
+      final replaced = tree.replaceRecipe('cookies', eggFreeCookies);
+
+      expect(
+        (replaced.components.single as ComponentRef).recipe,
+        same(anonymous),
+      );
+    });
+  });
 }
