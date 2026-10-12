@@ -2,7 +2,12 @@
   "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/0.18.4/.schema/devbox.schema.json",
   "packages": [
     "dart@latest",
-    "flutter@latest"
+    "flutter@latest",
+    "gtk3@latest",
+    "cmake@latest",
+    "ninja@latest",
+    "clang@latest",
+    "pkg-config@latest"
   ],
   "shell": {
     "init_hook": [
