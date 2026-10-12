@@ -40,11 +40,54 @@ class Recipe {
     required this.name,
     required this.yield,
     required this.lines,
+    this.id,
+    this.parentId,
+    this.steps = const [],
+    this.createdAt,
+    this.updatedAt,
   });
+
+  /// Stable identity within a [RecipeBook]; null for ad-hoc recipes.
+  final String? id;
+
+  /// [id] of the recipe this one derives from (e.g. an egg-free variant).
+  final String? parentId;
+
+  /// Ordered preparation steps. The engine treats them as display data.
+  final List<String> steps;
+
+  /// Set by the caller on creation; the engine never infers times.
+  final DateTime? createdAt;
+
+  /// Set by the caller when a recipe's content changes.
+  final DateTime? updatedAt;
 
   final String name;
   final YieldSpec yield;
   final List<RecipeLine> lines;
+
+  /// Returns a copy with the given fields replaced and everything else
+  /// preserved. Use this for derivatives and edits — never mutate lists.
+  Recipe copyWith({
+    String? name,
+    YieldSpec? yield,
+    List<RecipeLine>? lines,
+    String? id,
+    String? parentId,
+    List<String>? steps,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) =>
+      Recipe(
+        name: name ?? this.name,
+        yield: yield ?? this.yield,
+        lines: lines ?? this.lines,
+        id: id ?? this.id,
+        parentId: parentId ?? this.parentId,
+        steps: steps ?? this.steps,
+        createdAt: createdAt ?? this.createdAt,
+        updatedAt: updatedAt ?? this.updatedAt,
+      );
 
   /// The factor that adapts this recipe to a target yield dimension.
   /// Give exactly one target.
