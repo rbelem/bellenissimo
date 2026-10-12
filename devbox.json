@@ -1,0 +1,18 @@
+{
+  "$schema":  "https://raw.githubusercontent.com/jetify-com/devbox/0.18.4/.schema/devbox.schema.json",
+  "packages": ["dart@latest"],
+  "shell": {
+    "init_hook": [
+      "echo 'Welcome to devbox!' > /dev/null"
+    ],
+    "scripts": {
+      "test": [
+        "cd packages/core && dart test"
+      ],
+      "coverage": [
+        "cd packages/core && dart test --coverage=coverage && dart run coverage:format_coverage --lcov --in=coverage --out=coverage/lcov.info --report-on=lib",
+        "test -z \"$(grep '^DA.*,0$' coverage/lcov.info)\" || { echo 'FAIL: uncovered lines exist'; grep '^DA.*,0$' coverage/lcov.info; exit 1; }"
+      ]
+    }
+  }
+}

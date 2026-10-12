@@ -1,0 +1,47 @@
+{
+  "lockfile_version": "1",
+  "packages": {
+    "dart@latest": {
+      "last_modified": "2026-10-08T19:21:32Z",
+      "resolved": "github:NixOS/nixpkgs/8edc0c72e3a38faf5434e40d1f19431125fe4b30#dart",
+      "source": "devbox-search",
+      "version": "3.13.0",
+      "systems": {
+        "aarch64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/i26y4m31dir9jb7yqi1ypqg8imdz2niw-dart-3.13.0",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/i26y4m31dir9jb7yqi1ypqg8imdz2niw-dart-3.13.0"
+        },
+        "aarch64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/dlai8yhx5wlr584lr9m10lb4qvpvr20m-dart-3.13.0",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/dlai8yhx5wlr584lr9m10lb4qvpvr20m-dart-3.13.0"
+        },
+        "x86_64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/6xjz3m0xdrqsw0vw6c9vrd0diwnwwb44-dart-3.13.0",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/6xjz3m0xdrqsw0vw6c9vrd0diwnwwb44-dart-3.13.0"
+        }
+      }
+    },
+    "github:NixOS/nixpkgs/nixpkgs-unstable": {
+      "last_modified": "2026-10-06T17:11:02Z",
+      "resolved": "github:NixOS/nixpkgs/e2ccecbf30866802b1db536246e0939eccbd7bfb?lastModified=1791306662&narHash=sha256-bIhK7AMT7yU8Hkjzaag0MDpqbqiMTvN6UJ0U6Zs63OI%3D"
+    }
+  }
+}

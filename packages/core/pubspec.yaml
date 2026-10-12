@@ -1,0 +1,10 @@
+name: bellenissimos_core
+description: Units, densities, and scaling math for the bellenissimos recipe engine.
+publish_to: none
+environment:
+  sdk: ^3.13.0
+resolution: workspace
+dev_dependencies:
+  coverage: ^1.15.1
+  lints: ^6.1.0
+  test: ^1.33.0
