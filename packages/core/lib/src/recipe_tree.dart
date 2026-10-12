@@ -31,6 +31,26 @@ class RecipeTree {
   final String name;
   final List<RecipeComponent> components;
 
+  /// Returns a new tree where every [ComponentRef] whose recipe has
+  /// [originalId] points at [replacement] with the same factor, so a
+  /// derivative (e.g. an egg-free variant) can stand in for the original
+  /// inside a compound dish. Refs whose recipe has a null id never match;
+  /// factors are untouched — scaling stays [scaledBy]'s job.
+  RecipeTree replaceRecipe(String originalId, Recipe replacement) =>
+      RecipeTree(
+        name: name,
+        components: [
+          for (final component in components)
+            switch (component) {
+              ComponentLeaf() => component,
+              ComponentRef(recipe: final recipe, factor: final factor) =>
+                recipe.id == originalId
+                    ? ComponentRef(replacement, factor: factor)
+                    : component,
+            },
+        ],
+      );
+
   /// Scales every component. A [ComponentRef]'s recipe scales by the
   /// compound factor (ref factor times tree factor) in exactly one
   /// [Recipe.scaledBy] pass: that pass applies ingredient rounding steps,
