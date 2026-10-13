@@ -172,6 +172,9 @@ class _RecipesPageState extends State<RecipesPage> {
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
+            style: TextButton.styleFrom(
+              foregroundColor: Theme.of(context).extension<BoxTokens>()!.accent,
+            ),
             child: const Text('Delete'),
           ),
         ],
@@ -238,8 +241,6 @@ class _RecipesPageState extends State<RecipesPage> {
       floatingActionButton: FloatingActionButton(
         key: const ValueKey('add-recipe'),
         onPressed: _addRecipe,
-        backgroundColor: tokens.accent,
-        foregroundColor: tokens.card,
         child: const Icon(Icons.add),
       ),
       body: SingleChildScrollView(

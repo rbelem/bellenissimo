@@ -154,6 +154,41 @@ ThemeData _boxTheme(Brightness brightness, BoxTokens tokens) {
       overlayColor: tokens.accent.withValues(alpha: 0.15),
       trackShape: const RoundedRectSliderTrackShape(),
     ),
+    inputDecorationTheme: InputDecorationTheme(
+      focusColor: tokens.pencil,
+      focusedBorder: UnderlineInputBorder(
+        borderSide: BorderSide(color: tokens.pencil, width: 2),
+      ),
+    ),
+    floatingActionButtonTheme: FloatingActionButtonThemeData(
+      backgroundColor: scheme.onSurface,
+      foregroundColor: tokens.ground,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    ),
+    filledButtonTheme: FilledButtonThemeData(
+      style: FilledButton.styleFrom(
+        backgroundColor: scheme.onSurface,
+        foregroundColor: tokens.ground,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+      ),
+    ),
+    segmentedButtonTheme: SegmentedButtonThemeData(
+      style: ButtonStyle(
+        backgroundColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected)
+              ? tokens.rule
+              : null,
+        ),
+        foregroundColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected)
+              ? tokens.onCard
+              : tokens.pencil,
+        ),
+      ),
+    ),
+    textButtonTheme: TextButtonThemeData(
+      style: TextButton.styleFrom(foregroundColor: tokens.pencil),
+    ),
     textTheme: Typography.material2021().black.apply(
       bodyColor: tokens.onCard,
       displayColor: tokens.onCard,

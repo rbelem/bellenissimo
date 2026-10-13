@@ -61,7 +61,9 @@ class _RecipeEditorState extends State<RecipeEditor> {
         widget.recipe?.yield.totalGrams ?? widget.parent?.yield.totalGrams;
     _piecesMode = count != null || grams == null;
     final initialValue = count ?? grams ?? (_piecesMode ? 12 : 500);
-    _yieldValue = TextEditingController(text: initialValue.toString());
+    _yieldValue = TextEditingController(
+      text: _formatAmount(initialValue.toDouble()),
+    );
   }
 
   @override
@@ -79,6 +81,9 @@ class _RecipeEditorState extends State<RecipeEditor> {
     final amount = quantity.amount;
     return amount % 1 == 0 ? amount.round().toString() : '$amount';
   }
+
+  String _formatAmount(double amount) =>
+      amount % 1 == 0 ? amount.round().toString() : '$amount';
 
   void _addLine() => setState(() {
         _ingredients.add(TextEditingController());
