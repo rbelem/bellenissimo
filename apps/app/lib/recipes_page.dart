@@ -58,6 +58,10 @@ const _seedPieceNouns = <String, String>{'cookies': ' cookies'};
 
 /// Built-in mass-equivalence swaps derived from seed densities, plus the
 /// classic egg-free move. Users pick from these per row.
+/// Built-in mass-equivalence swaps. gramsPerGram comes from the seeds'
+/// densities (with.gramsPerMl / from.gramsPerMl) so both directions
+/// weigh the same. Substitutions are a VIEW over a card — the source
+/// recipe never changes.
 final _substitutionTable = <String, List<Substitution>>{
   'butter': [
     Substitution(
@@ -86,7 +90,8 @@ final _substitutionTable = <String, List<Substitution>>{
 };
 
 /// The reference pan new pan calculations start from: a 20 cm round tin,
-/// 5 cm deep — the most common cake pan.
+/// 5 cm deep — the most common cake pan. Factors above ×1 mean a bigger
+/// pan than the recipe was written for.
 final Pan _referencePan = Pan.round(20, 5);
 
 Duration? _baseBakeTime(Recipe recipe) {

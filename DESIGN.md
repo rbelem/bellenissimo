@@ -68,6 +68,14 @@ components:
   quantity-row:
     backgroundColor: "transparent"
     textColor: "{colors.ink}"
+  fab:
+    backgroundColor: "{colors.card-cream}"
+    textColor: "{colors.walnut}"
+    rounded: "12px"
+  editor-save:
+    backgroundColor: "{colors.card-cream}"
+    textColor: "{colors.walnut}"
+    rounded: "4px"
 ---
 
 # Design System: bellenissimos
@@ -171,18 +179,45 @@ Card corners 4px — nearly square, like real index cards. The stamp is 2px with
 - **Style:** Caveat 17px, pencil — "variant of Butter cookies", "variants: …"
 - **Rule:** lineage is handwriting; it never appears in system chrome
 
+### Editor Sheet
+- **Shape:** bottom sheet, 4px top radius, card face, 88% height
+- **Fields:** name (Courier input), pieces/grams SegmentedButton (selected = rule fill, onCard text), ingredient rows (name + amount + unit dropdown + remove), steps one-per-line
+- **Save:** pinned below the scroll view — always visible; card-stock button (onSurface fill, ground text)
+- **Primary actions are card stock.** The FAB and Save render in the surface color with ground-colored content — never red. Red stays reserved.
+
+### Import Dialog
+- **Shape:** M3 dialog on card face
+- **Field:** multiline JSON input in Courier 12.5px
+- **Issues:** engine import issues listed in stamp red under the field
+- **Buttons:** Cancel (pencil), Import (card stock)
+
+### Pan Section
+- **Where:** below the scale slider on scalable recipes whose steps state a bake time
+- **Controls:** shape dropdown, dimension + depth numeric fields (Courier)
+- **Readout:** pencil annotation — "pan factor ×1.44 · bake ≈ 16 min (base 12)" — recomputed live from `panScaleFactor` + `scaledBakingTime` against the 20 cm reference tin
+
+### Substitution Rows
+- **Trigger:** long-press a quantity row whose ingredient has a swap in the built-in seed-density table
+- **Result:** the row shows the replacement ingredient and amount, with the swap's note in Caveat underneath
+- **Scope:** substitutions are a view, never persisted into the source recipe
+
+### Mass Unit Toggle
+- **Style:** app-bar text button reading the unit it switches TO ("oz" / "g")
+- **Effect:** mass quantities re-render in ounces (one decimal); volume and counts untouched
+
 ## Do's and Don'ts
 
 ### Do:
-- **Do** keep stamp red for the VARIANT stamp, changed yields, and the lid rule — nothing else.
+- **Do** keep stamp red for the VARIANT stamp, changed yields, the lid rule, and destructive confirms — nothing else.
 - **Do** set every quantity in Courier Prime with tabular alignment.
 - **Do** render lineage (variant/parent relations) in Caveat pencil.
 - **Do** let approximations stay visible: seeds are offered, never imposed.
 - **Do** honor Reduce Motion: instant swaps instead of rolls and fades.
+- **Do** pin primary actions (Save) outside scrollable content — always reachable.
 
 ### Don't:
 - **Don't** ship food photography as layout structure — the box holds cards, not a photo feed.
 - **Don't** introduce a second accent color; the system has red and it is scarce.
-- **Don't** add dead controls (nav bars, FABs) before the features behind them exist.
 - **Don't** put a kicker or eyebrow label above a heading.
 - **Don't** set recipe identity data (steps, dates, lineage) from a scaled recipe instance — those come from the raw card; only quantities scale.
+- **Don't** persist a substitution into the source recipe; swaps are a view over the card.
