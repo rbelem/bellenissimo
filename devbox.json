@@ -20,6 +20,17 @@
       "test:app": [
         "cd apps/app && flutter test --coverage"
       ],
+      "run:desktop": [
+        "cd apps/app",
+        "[ -x build/linux/x64/debug/bundle/bellenissimos_app ] || flutter build linux --debug",
+        "exec build/linux/x64/debug/bundle/bellenissimos_app"
+      ],
+      "run:reload": [
+        "nix develop .#linux-desktop -c bash -c 'cd apps/app && flutter run -d linux'"
+      ],
+      "run:web": [
+        "cd apps/app && flutter run -d web-server --web-hostname 127.0.0.1 --web-port 8123"
+      ],
       "coverage": [
         "cd packages/core && dart test --coverage=coverage && dart run coverage:format_coverage --lcov --in=coverage --out=coverage/lcov.info --report-on=lib",
         "test -z \"$(grep '^DA.*,0$' coverage/lcov.info)\" || { echo 'FAIL: uncovered lines exist'; grep '^DA.*,0$' coverage/lcov.info; exit 1; }",

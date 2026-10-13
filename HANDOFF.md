@@ -41,9 +41,9 @@ devbox.json             dart, flutter, gtk3, cmake, ninja, clang, pkg-config + s
 | App tests | `devbox run test:app` |
 | Coverage gate (both packages, 100% lines) | `devbox run coverage` — fails on ANY uncovered line |
 | Analyze | `devbox run -- bash -c "cd packages/core && dart analyze"` |
-| Desktop with hot reload | `nix develop .#linux-desktop -c bash -c 'cd apps/app && flutter run -d linux'` (needs a real TTY) |
-| Desktop quick run (no reload) | `apps/app/build/linux/x64/debug/bundle/bellenissimos_app` (390×844 phone window) |
-| Web | `cd apps/app && flutter run -d web-server --web-hostname 127.0.0.1 --web-port 8123` |
+| Desktop quick run (builds if missing) | `devbox run run:desktop` |
+| Desktop with hot reload (real TTY) | `devbox run run:reload` |
+| Web | `devbox run run:web` |
 
 ## Engine invariants (do not break)
 
