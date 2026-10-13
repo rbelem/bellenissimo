@@ -3,9 +3,24 @@ import 'package:bellenissimos_app/recipes_page.dart';
 import 'package:bellenissimos_app/seed_recipes.dart';
 import 'package:bellenissimos_core/core.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'sqlite_test_setup.dart';
+
 void main() {
+  setUpAll(() {
+    overrideSqliteForTests();
+    const channel = MethodChannel('plugins.flutter.io/path_provider');
+    TestWidgetsFlutterBinding.ensureInitialized();
+    TestWidgetsFlutterBinding.instance.defaultBinaryMessenger
+        .setMockMessageHandler(channel.name, (message) async {
+      return const StandardMessageCodec().encodeMessage(
+        '/tmp/opencode/bellenissimos-test',
+      );
+    });
+  });
+
   Future<void> pumpApp(WidgetTester tester) async {
     await tester.pumpWidget(const app.BellenissimosApp());
     await tester.pumpAndSettle();
@@ -118,7 +133,8 @@ void main() {
   });
 
   testWidgets('main() boots the app', (tester) async {
-    app.main();
+    await app.main();
+    await tester.pump();
     await tester.pumpAndSettle();
     expect(find.text('Recipes'), findsOneWidget);
   });

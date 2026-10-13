@@ -65,3 +65,7 @@ final Recipe eggFreeCookies = butterCookies.copyWith(
   createdAt: DateTime(2026, 2, 1, 14, 0),
   updatedAt: DateTime(2026, 2, 3, 9, 30),
 );
+
+/// First-run content: what a fresh store gets seeded with, in display
+/// order (derivative right after its parent, per the direction contract).
+final seedRecipes = <Recipe>[butterCookies, eggFreeCookies, sandwichLoaf];

@@ -1,14 +1,24 @@
 import 'package:bellenissimos_core/core.dart';
 import 'package:flutter/material.dart';
 
+import 'persistence/recipe_store.dart';
 import 'seed_recipes.dart';
 import 'theme.dart';
 
-final RecipeBook _seedBook = RecipeBook([
-  butterCookies,
-  sandwichLoaf,
-  eggFreeCookies,
-]);
+/// Fallback store for tests and for launches where no database file can
+/// be opened; seeded so the box is never empty.
+final RecipeStore _fallbackStore = RecipeStore.inMemory()..ensureSeeded(seedRecipes);
+
+/// Stable scale-control prefixes for the seeded cards, so widget keys in
+/// tests and integrations stay put. Anything new derives its prefix from
+/// its id.
+const _seedPrefixes = <String, String>{
+  'butter-cookies': 'cookies',
+  'sandwich-loaf': 'loaf',
+  'egg-free-cookies': 'eggfree',
+};
+
+const _seedPieceNouns = <String, String>{'cookies': ' cookies'};
 
 /// "created yyyy-mm-dd · updated yyyy-mm-dd", or null when undated.
 String? timestampLine(Recipe recipe) {
@@ -24,35 +34,48 @@ String _ymd(DateTime date) =>
 String _two(int value) => value.toString().padLeft(2, '0');
 
 class RecipesPage extends StatefulWidget {
-  const RecipesPage({super.key});
+  const RecipesPage({super.key, this.store});
+
+  final RecipeStore? store;
 
   @override
   State<RecipesPage> createState() => _RecipesPageState();
 }
 
 class _RecipesPageState extends State<RecipesPage> {
-  double _cookieCount = 24;
-  double _loafGrams = 900;
+  late final RecipeStore _store;
+  late final List<Recipe> _recipes;
+  late final RecipeBook _book;
+  final Map<String, double> _targets = {};
   String? _activeScale;
 
-  Recipe get _scaledCookies =>
-      butterCookies.scaledBy(butterCookies.factorTo(targetCount: _cookieCount));
+  @override
+  void initState() {
+    super.initState();
+    _store = widget.store ?? _fallbackStore;
+    _reload();
+  }
 
-  Recipe get _scaledLoaf => sandwichLoaf.scaledBy(
-    sandwichLoaf.factorTo(targetTotalGrams: _loafGrams),
-  );
+  void _reload() {
+    _recipes = _store.all();
+    _book = RecipeBook(_recipes);
+    for (final recipe in _recipes) {
+      final base = recipe.yield.count ?? recipe.yield.totalGrams;
+      if (base != null) _targets.putIfAbsent(recipe.id!, () => base);
+    }
+  }
 
   Iterable<Widget> _familyLines(Recipe recipe) sync* {
     final parentId = recipe.parentId;
     if (parentId != null) {
       yield Text(
-        'variant of ${_seedBook.byId(parentId)!.name}',
+        'variant of ${_book.byId(parentId)!.name}',
         style: boxAnnotation(context),
       );
     }
     final id = recipe.id;
     if (id == null) return;
-    final variants = _seedBook.derivativesOf(id);
+    final variants = _book.derivativesOf(id);
     if (variants.isEmpty) return;
     yield Text(
       'variants: ${variants.map((r) => r.name).join(', ')}',
@@ -106,6 +129,21 @@ class _RecipesPageState extends State<RecipesPage> {
     ),
   );
 
+  String _yieldText(Recipe scaled, String prefix) {
+    final count = scaled.yield.count;
+    if (count != null) {
+      return 'Makes ${count.round()}${_seedPieceNouns[prefix] ?? ' pieces'}';
+    }
+    return 'Makes ${scaled.yield.totalGrams!.round()} g';
+  }
+
+  String _targetText(String prefix, double target) =>
+      _seedPieceNouns[prefix] == null && _isMassRecipe(prefix)
+          ? 'Target: ${target.round()} g'
+          : 'Target: ${target.round()}${_seedPieceNouns[prefix] ?? ' pieces'}';
+
+  bool _isMassRecipe(String prefix) => prefix == 'loaf';
+
   @override
   Widget build(BuildContext context) {
     final tokens = Theme.of(context).extension<BoxTokens>()!;
@@ -122,89 +160,31 @@ class _RecipesPageState extends State<RecipesPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _recipeCard(
-              raw: butterCookies,
-              scaled: _scaledCookies,
-              prefix: 'cookies',
-              dragging: _activeScale == 'cookies',
-              active: _activeScale == null || _activeScale == 'cookies',
-              isScaled: _cookieCount.round() != 24,
-              target: _cookieCount,
-              min: 12,
-              max: 48,
-              yieldKey: 'cookies-yield',
-              targetKey: 'cookies-target',
-              sliderKey: 'cookies-slider',
-              yieldText:
-                  'Makes ${_scaledCookies.yield.count!.round()} cookies',
-              targetText: 'Target: ${_cookieCount.round()} cookies',
-              onChanged: (value) => setState(() => _cookieCount = value),
-            ),
-            const SizedBox(height: 16),
-            _recipeCard(
-              raw: eggFreeCookies,
-              scaled: eggFreeCookies,
-              prefix: 'eggfree',
-              dragging: _activeScale == 'eggfree',
-              active: _activeScale == null || _activeScale == 'eggfree',
-              isScaled: false,
-              showLines: false,
-            ),
-            const SizedBox(height: 16),
-            _recipeCard(
-              raw: sandwichLoaf,
-              scaled: _scaledLoaf,
-              prefix: 'loaf',
-              dragging: _activeScale == 'loaf',
-              active: _activeScale == null || _activeScale == 'loaf',
-              isScaled: _loafGrams.round() != 900,
-              target: _loafGrams,
-              min: 450,
-              max: 1800,
-              yieldKey: 'loaf-yield',
-              targetKey: 'loaf-target',
-              sliderKey: 'loaf-slider',
-              yieldText: 'Makes ${_scaledLoaf.yield.totalGrams!.round()} g',
-              targetText: 'Target: ${_loafGrams.round()} g',
-              onChanged: (value) => setState(() => _loafGrams = value),
-            ),
+            for (var i = 0; i < _recipes.length; i++) ...[
+              if (i > 0) const SizedBox(height: 16),
+              _recipeCard(_recipes[i]),
+            ],
           ],
         ),
       ),
     );
   }
 
-  /// [raw] carries identity — name, dates, lineage, steps; [scaled] carries
-  /// quantities alone, because scaledBy() returns a quantity-only projection.
-  Widget _recipeCard({
-    required Recipe raw,
-    required Recipe scaled,
-    required String prefix,
-    required bool active,
-    required bool isScaled,
-    required bool dragging,
-    bool showLines = true,
-    double? target,
-    double? min,
-    double? max,
-    String? yieldKey,
-    String? targetKey,
-    String? sliderKey,
-    String? yieldText,
-    String? targetText,
-    ValueChanged<double>? onChanged,
-  }) {
+  Widget _recipeCard(Recipe raw) {
     final tokens = Theme.of(context).extension<BoxTokens>()!;
+    final prefix = _seedPrefixes[raw.id] ?? raw.id!;
+    final base = raw.yield.count ?? raw.yield.totalGrams;
+    final target = _targets[raw.id] ?? base!;
+    final isScaled = target != base;
+    final scaled = raw.scaledBy(target / base!);
     final dated = timestampLine(raw);
-    final scaleLo = min;
-    final scaleHi = max;
-    final scaleValue = target;
-    final hasScale =
-        scaleLo != null && scaleHi != null && scaleValue != null;
+    final scaleLo = base / 2;
+    final scaleHi = base * 2;
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
     return AnimatedOpacity(
-      duration: reduceMotion ? Duration.zero : const Duration(milliseconds: 200),
-      opacity: active ? 1 : 0.55,
+      duration:
+          reduceMotion ? Duration.zero : const Duration(milliseconds: 200),
+      opacity: _activeScale == null || _activeScale == prefix ? 1 : 0.55,
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: tokens.card,
@@ -247,18 +227,16 @@ class _RecipesPageState extends State<RecipesPage> {
                       ),
                     ),
                   ..._familyLines(raw),
-                  if (showLines) ...[
+                  if (raw.parentId == null) ...[
                     const SizedBox(height: 8),
                     ..._lines(scaled, prefix),
-                  ],
-                  if (yieldText != null)
                     Padding(
                       padding: const EdgeInsets.only(top: 12),
                       child: _rolling(
-                        yieldText,
+                        _yieldText(scaled, prefix),
                         Text(
-                          yieldText,
-                          key: ValueKey(yieldKey!),
+                          _yieldText(scaled, prefix),
+                          key: ValueKey('$prefix-yield'),
                           style: boxQuantity(context, size: 15.5).copyWith(
                             fontWeight: FontWeight.w700,
                             color: isScaled ? tokens.accent : tokens.onCard,
@@ -271,14 +249,13 @@ class _RecipesPageState extends State<RecipesPage> {
                         ),
                       ),
                     ),
-                  if (hasScale) ...[
                     Padding(
                       padding: const EdgeInsets.only(top: 10, bottom: 2),
                       child: _rolling(
-                        targetText!,
+                        _targetText(prefix, target),
                         Text(
-                          targetText,
-                          key: ValueKey(targetKey!),
+                          _targetText(prefix, target),
+                          key: ValueKey('$prefix-target'),
                           style: TextStyle(
                             fontSize: 11.5,
                             letterSpacing: 0.5,
@@ -289,19 +266,26 @@ class _RecipesPageState extends State<RecipesPage> {
                     ),
                     SliderTheme(
                       data: SliderTheme.of(context).copyWith(
-                        activeTrackColor:
-                            isScaled || dragging ? tokens.accent : tokens.rule,
-                        thumbColor:
-                            isScaled || dragging ? tokens.accent : tokens.pencil,
+                        activeTrackColor: isScaled ||
+                                _activeScale == prefix
+                            ? tokens.accent
+                            : tokens.rule,
+                        thumbColor: isScaled || _activeScale == prefix
+                            ? tokens.accent
+                            : tokens.pencil,
                       ),
                       child: Semantics(
                         label: 'Scale ${raw.name} yield',
                         child: Slider(
-                          key: ValueKey(sliderKey!),
-                          value: scaleValue,
+                          key: ValueKey('$prefix-slider'),
+                          value: target,
                           min: scaleLo,
                           max: scaleHi,
-                          onChanged: onChanged,
+                          onChanged: (value) => setState(
+                            () {
+                              _targets[raw.id!] = value;
+                            },
+                          ),
                           onChangeStart: (_) =>
                               setState(() => _activeScale = prefix),
                           onChangeEnd: (_) =>

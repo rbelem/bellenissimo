@@ -1,19 +1,38 @@
 import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
 
+import 'persistence/recipe_store.dart';
 import 'recipes_page.dart';
+import 'seed_recipes.dart';
 import 'theme.dart';
 
-void main() => runApp(const BellenissimosApp());
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  runApp(await _buildApp());
+}
+
+Future<Widget> _buildApp() async {
+  try {
+    final dir = await getApplicationSupportDirectory();
+    final store = RecipeStore.open('${dir.path}/recipes.db');
+    store.ensureSeeded(seedRecipes);
+    return BellenissimosApp(store: store);
+  } on Exception {
+    return const BellenissimosApp();
+  }
+}
 
 class BellenissimosApp extends StatelessWidget {
-  const BellenissimosApp({super.key});
+  const BellenissimosApp({super.key, this.store});
+
+  final RecipeStore? store;
 
   @override
   Widget build(BuildContext context) => MaterialApp(
         title: 'bellenissimos',
         theme: recipeBoxLight,
         darkTheme: recipeBoxDark,
-        home: const RecipesPage(),
+        home: RecipesPage(store: store),
         // Desktop runs in a phone-shaped window; even if maximized, the
         // content stays a centered mobile column.
         builder: (context, child) => Center(
