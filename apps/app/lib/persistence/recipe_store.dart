@@ -3,6 +3,21 @@ import 'package:sqlite3/sqlite3.dart';
 
 import 'recipe_codec.dart';
 
+/// A unique, slug-derived id for [name] within [store]'s recipes.
+String uniqueRecipeId(Database db, String name) {
+  var slug = name
+      .toLowerCase()
+      .replaceAll(RegExp('[^a-z0-9]+'), '-')
+      .replaceAll(RegExp(r'^-,+|-+$'), '');
+  if (slug.isEmpty) slug = 'recipe';
+  var candidate = slug;
+  var n = 2;
+  while (db.select('SELECT 1 FROM recipes WHERE id = ?', [candidate]).isNotEmpty) {
+    candidate = '$slug-${n++}';
+  }
+  return candidate;
+}
+
 /// SQLite-backed recipe storage. The whole recipe travels as one JSON
 /// document per row; columns exist only for identity, ordering, and
 /// lineage lookups.
@@ -24,6 +39,9 @@ class RecipeStore {
   }
 
   final Database _db;
+
+  /// Direct handle for helpers that need raw queries.
+  Database get db => _db;
 
   void _ensureSchema() {
     _db.execute('''

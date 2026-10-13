@@ -2,9 +2,44 @@ import 'package:bellenissimos_core/core.dart';
 import 'package:flutter/material.dart';
 
 import 'editor/recipe_editor.dart';
+import 'import/recipe_import_dialog.dart';
 import 'persistence/recipe_store.dart';
 import 'seed_recipes.dart';
 import 'theme.dart';
+
+/// Display unit for mass quantities.
+enum _MassUnit { g, oz }
+
+/// One target-pan draft for a card.
+class _PanDraft {
+  _PanDraft({
+    this.shape = PanShape.round,
+    this.dim1 = '20',
+    this.dim2 = '',
+    this.depth = '5',
+  });
+
+  PanShape shape;
+  String dim1;
+  String dim2;
+  String depth;
+
+  Pan? build() {
+    final d1 = double.tryParse(dim1);
+    final depth = double.tryParse(this.depth);
+    if (d1 == null || depth == null || depth <= 0 || d1 <= 0) return null;
+    return switch (shape) {
+      PanShape.round => Pan.round(d1, depth),
+      PanShape.square => Pan.square(d1, depth),
+      PanShape.rectangular => Pan.rectangular(
+          d1,
+          double.tryParse(dim2) ?? d1,
+          depth,
+        ),
+    };
+  }
+}
+
 
 /// Fallback store for tests and for launches where no database file can
 /// be opened; seeded so the box is never empty.
@@ -20,6 +55,48 @@ const _seedPrefixes = <String, String>{
 };
 
 const _seedPieceNouns = <String, String>{'cookies': ' cookies'};
+
+/// Built-in mass-equivalence swaps derived from seed densities, plus the
+/// classic egg-free move. Users pick from these per row.
+final _substitutionTable = <String, List<Substitution>>{
+  'butter': [
+    Substitution(
+      'butter',
+      seedIngredients['oil']!,
+      gramsPerGram: 0.95 / 0.9,
+      note: 'melted, same volume roughly',
+    ),
+  ],
+  'sugar': [
+    Substitution(
+      'sugar',
+      seedIngredients['honey']!,
+      gramsPerGram: 0.83 / 1.42,
+      note: 'reduce oven by 10 C',
+    ),
+  ],
+  'egg': [
+    Substitution(
+      'egg',
+      Ingredient('applesauce', gramsPerMl: 1.02),
+      gramsPerGram: 50 / 102,
+      note: 'the egg-free move',
+    ),
+  ],
+};
+
+/// The reference pan new pan calculations start from: a 20 cm round tin,
+/// 5 cm deep — the most common cake pan.
+final Pan _referencePan = Pan.round(20, 5);
+
+Duration? _baseBakeTime(Recipe recipe) {
+  for (final step in recipe.steps) {
+    final match = RegExp(r'for (\d+) minutes').firstMatch(step);
+    if (match != null) return Duration(minutes: int.parse(match.group(1)!));
+  }
+  return null;
+}
+
 
 /// "created yyyy-mm-dd · updated yyyy-mm-dd", or null when undated.
 String? timestampLine(Recipe recipe) {
@@ -48,6 +125,9 @@ class _RecipesPageState extends State<RecipesPage> {
   late List<Recipe> _recipes;
   late RecipeBook _book;
   final Map<String, double> _targets = {};
+  final Map<String, _PanDraft> _pans = {};
+  final Map<String, Map<String, Substitution>> _subs = {};
+  _MassUnit _massUnit = _MassUnit.g;
   String? _activeScale;
 
   @override
@@ -109,26 +189,98 @@ class _RecipesPageState extends State<RecipesPage> {
     );
   }
 
-  List<Widget> _lines(Recipe recipe, String prefix) => [
+  List<Widget> _lines(Recipe recipe, String prefix, Map<String, Substitution> subs) => [
     for (final line in recipe.lines)
-      _rolling('${line.quantity} ${line.ingredient.id}', _lineTile(line, prefix)),
+      _rolling('${_displayQuantity(line, subs)} ${line.ingredient.id}',
+          _lineTile(line, prefix, subs)),
   ];
 
-  Widget _lineTile(RecipeLine line, String prefix) => Container(
-    decoration: BoxDecoration(
-      border: Border(
-        bottom: BorderSide(color: Theme.of(context).extension<BoxTokens>()!.rule),
+  Quantity _displayQuantity(RecipeLine line, Map<String, Substitution> subs) {
+    final sub = subs[line.ingredient.id];
+    final effective = sub == null ? line : applySubstitution(line, [sub])?.line ?? line;
+    var quantity = effective.quantity;
+    if (_massUnit == _MassUnit.oz && quantity.unit.kind == UnitKind.mass) {
+      quantity = quantity.convertTo(Unit.oz);
+    }
+    return quantity;
+  }
+
+  String _quantityText(Quantity quantity) {
+    if (quantity.unit == Unit.oz && quantity.amount % 1 != 0) {
+      return '${quantity.amount.toStringAsFixed(1)} oz';
+    }
+    if (quantity.unit == Unit.g && quantity.amount % 1 != 0) {
+      return '${quantity.amount.round()} g';
+    }
+    return '$quantity';
+  }
+
+  Widget _lineTile(
+    RecipeLine line,
+    String prefix,
+    Map<String, Substitution> subs,
+  ) {
+    final sub = subs[line.ingredient.id];
+    final effective = sub == null ? line : applySubstitution(line, [sub])?.line ?? line;
+    return Container(
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: Theme.of(context).extension<BoxTokens>()!.rule),
+        ),
       ),
-    ),
-    child: ListTile(
-      key: ValueKey('$prefix-line-${line.ingredient.id}'),
-      dense: true,
-      visualDensity: VisualDensity.compact,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-      title: Text('${line.quantity} ${line.ingredient.id}',
-          style: boxQuantity(context)),
-    ),
-  );
+      child: Material(
+        type: MaterialType.transparency,
+        child: ListTile(
+        key: ValueKey('$prefix-line-${line.ingredient.id}'),
+        dense: true,
+        visualDensity: VisualDensity.compact,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+        onLongPress: sub == null &&
+                (_substitutionTable[line.ingredient.id]?.isNotEmpty ?? false)
+            ? () => _substituteMenu(prefix, line)
+            : null,
+        title: Text(
+          '${_quantityText(_displayQuantity(line, subs))} ${effective.ingredient.id}',
+          style: boxQuantity(context),
+        ),
+        subtitle: sub != null && sub.note != null
+            ? Text(
+                sub.note!,
+                style: boxAnnotation(context, size: 14),
+              )
+            : null,
+      ),
+      ),
+    );
+  }
+
+  void _substituteMenu(String prefix, RecipeLine line) {
+    final options = _substitutionTable[line.ingredient.id] ?? const [];
+    showModalBottomSheet<void>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final option in options)
+              ListTile(
+                key: ValueKey('sub-$prefix-${option.withIngredient.id}'),
+                leading: const Icon(Icons.swap_horiz),
+                title: Text('Replace ${line.ingredient.id} with ${option.withIngredient.id}'),
+                subtitle: option.note == null ? null : Text(option.note!),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  setState(() {
+                    _subs.putIfAbsent(prefix, () => {});
+                    _subs[prefix]![line.ingredient.id] = option;
+                  });
+                },
+              ),
+          ],
+        ),
+      ),
+    );
+  }
 
   String _yieldText(Recipe scaled, String prefix) {
     final count = scaled.yield.count;
@@ -145,8 +297,89 @@ class _RecipesPageState extends State<RecipesPage> {
 
   bool _isMassRecipe(String prefix) => prefix == 'loaf';
 
+  Widget _panSection(Recipe raw, String prefix, Duration baseBake) {
+    final tokens = Theme.of(context).extension<BoxTokens>()!;
+    final draft = _pans.putIfAbsent(prefix, _PanDraft.new);
+    final targetPan = draft.build();
+    final factor = targetPan == null ? null : panScaleFactor(_referencePan, targetPan);
+    final bake =
+        factor == null ? null : scaledBakingTime(baseBake, factor);
+    final dimLabel = switch (draft.shape) {
+      PanShape.round => 'diameter cm',
+      PanShape.square => 'side cm',
+      PanShape.rectangular => 'length cm',
+    };
+    return Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                flex: 2,
+                child: DropdownButtonFormField<PanShape>(
+                  key: ValueKey('pan-shape-$prefix'),
+                  initialValue: draft.shape,
+                  isExpanded: true,
+                  items: [
+                    for (final shape in PanShape.values)
+                      DropdownMenuItem(value: shape, child: Text(shape.name)),
+                  ],
+                  onChanged: (shape) => setState(() => draft.shape = shape!),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                flex: 2,
+                child: TextFormField(
+                  key: ValueKey('pan-dim-$prefix'),
+                  initialValue: draft.dim1,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  style: boxQuantity(context),
+                  decoration: InputDecoration(labelText: dimLabel),
+                  onChanged: (value) => setState(() => draft.dim1 = value),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: TextFormField(
+                  key: ValueKey('pan-depth-$prefix'),
+                  initialValue: draft.depth,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  style: boxQuantity(context),
+                  decoration: const InputDecoration(labelText: 'depth'),
+                  onChanged: (value) => setState(() => draft.depth = value),
+                ),
+              ),
+            ],
+          ),
+          if (bake != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 4, left: 4),
+              child: Text(
+                'pan factor ×${factor!.toStringAsFixed(2)} · '
+                'bake ≈ ${bake.inMinutes} min (base ${baseBake.inMinutes})',
+                key: ValueKey('pan-bake-$prefix'),
+                style: TextStyle(fontSize: 12, color: tokens.pencil),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _addRecipe() async {
     final saved = await showRecipeEditor(context, _store);
+    if (saved != null) setState(_reload);
+  }
+
+  Future<void> _importRecipe() async {
+    final saved = await showRecipeImportDialog(context, _store);
     if (saved != null) setState(_reload);
   }
 
@@ -233,6 +466,26 @@ class _RecipesPageState extends State<RecipesPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Recipes'),
+        actions: [
+          IconButton(
+            key: const ValueKey('toggle-mass-unit'),
+            tooltip: 'Toggle mass unit',
+            icon: Text(
+              _massUnit == _MassUnit.g ? 'oz' : 'g',
+              style: const TextStyle(fontSize: 13),
+            ),
+            onPressed: () => setState(() {
+              _massUnit =
+                  _massUnit == _MassUnit.g ? _MassUnit.oz : _MassUnit.g;
+            }),
+          ),
+          IconButton(
+            key: const ValueKey('import-recipe'),
+            tooltip: 'Import recipe JSON',
+            icon: const Icon(Icons.paste),
+            onPressed: _importRecipe,
+          ),
+        ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(2),
           child: Container(height: 2, color: tokens.accent),
@@ -344,7 +597,7 @@ class _RecipesPageState extends State<RecipesPage> {
               ..._familyLines(raw),
               if (raw.parentId == null) ...[
                 const SizedBox(height: 8),
-                ..._lines(scaled, prefix),
+                ..._lines(scaled, prefix, _subs[prefix] ?? const {}),
                 Padding(
                   padding: const EdgeInsets.only(top: 12),
                   child: _rolling(
@@ -404,6 +657,8 @@ class _RecipesPageState extends State<RecipesPage> {
                     ),
                   ),
                 ),
+                if (_baseBakeTime(raw) != null)
+                  _panSection(raw, prefix, _baseBakeTime(raw)!),
               ],
               if (raw.steps.isNotEmpty)
                 Padding(
