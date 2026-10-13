@@ -1,0 +1,318 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-13T15:00:00Z",
+  "title": "Design System: bellenissimos",
+  "extensions": {
+    "colorMeta": {
+      "walnut": {
+        "role": "neutral",
+        "displayName": "Walnut",
+        "canonical": "#3E2F23",
+        "tonalRamp": [
+          "#31251C",
+          "#564131",
+          "#7B5E46",
+          "#A17A5B",
+          "#B7987F",
+          "#CCB6A4",
+          "#E1D4C9",
+          "#F6F2EF"
+        ]
+      },
+      "espresso": {
+        "role": "neutral",
+        "displayName": "Espresso",
+        "canonical": "#241B14",
+        "tonalRamp": [
+          "#31251B",
+          "#574130",
+          "#7C5D45",
+          "#A2795A",
+          "#B7977E",
+          "#CCB5A4",
+          "#E1D4C9",
+          "#F6F2EF"
+        ]
+      },
+      "card-cream": {
+        "role": "neutral",
+        "displayName": "Card Cream",
+        "canonical": "#F7F2E9",
+        "tonalRamp": [
+          "#382B14",
+          "#634C24",
+          "#8E6D33",
+          "#B88E43",
+          "#CAA86C",
+          "#D9C197",
+          "#E9DBC2",
+          "#F8F4EC"
+        ]
+      },
+      "card-espresso": {
+        "role": "neutral",
+        "displayName": "Card Espresso",
+        "canonical": "#35291E",
+        "tonalRamp": [
+          "#31261C",
+          "#564331",
+          "#7B5F46",
+          "#A17C5B",
+          "#B79A7F",
+          "#CCB7A4",
+          "#E1D5C9",
+          "#F6F2EF"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "#2B2118",
+        "tonalRamp": [
+          "#31261B",
+          "#574230",
+          "#7C5F45",
+          "#A17C5A",
+          "#B7997E",
+          "#CCB7A4",
+          "#E1D4C9",
+          "#F6F2EF"
+        ]
+      },
+      "cream-ink": {
+        "role": "neutral",
+        "displayName": "Cream Ink",
+        "canonical": "#F1E9DA",
+        "tonalRamp": [
+          "#372C15",
+          "#624D25",
+          "#8C6E35",
+          "#B68F45",
+          "#C8A96E",
+          "#D8C298",
+          "#E8DBC2",
+          "#F8F4EC"
+        ]
+      },
+      "stamp-red": {
+        "role": "primary",
+        "displayName": "Stamp Red",
+        "canonical": "#C03B2E",
+        "tonalRamp": [
+          "#3E130F",
+          "#6D211A",
+          "#9C3025",
+          "#CB3E31",
+          "#D8685D",
+          "#E4948C",
+          "#EFC0BB",
+          "#FAECEA"
+        ]
+      },
+      "stamp-red-dark": {
+        "role": "primary",
+        "displayName": "Stamp Red Dark",
+        "canonical": "#E06A55",
+        "tonalRamp": [
+          "#41140C",
+          "#722315",
+          "#A3321E",
+          "#D54127",
+          "#E06A56",
+          "#E99687",
+          "#F2C1B8",
+          "#FBECE9"
+        ]
+      },
+      "pencil": {
+        "role": "neutral",
+        "displayName": "Pencil",
+        "canonical": "#6E6252",
+        "tonalRamp": [
+          "#2C2721",
+          "#4D453A",
+          "#6F6352",
+          "#90806B",
+          "#A99D8C",
+          "#C2B9AE",
+          "#DBD6CF",
+          "#F4F3F0"
+        ]
+      },
+      "pencil-dark": {
+        "role": "neutral",
+        "displayName": "Pencil Dark",
+        "canonical": "#B3A48D",
+        "tonalRamp": [
+          "#2E281F",
+          "#514636",
+          "#74654D",
+          "#978365",
+          "#AF9F87",
+          "#C6BBAA",
+          "#DDD7CD",
+          "#F5F3F0"
+        ]
+      },
+      "rule": {
+        "role": "neutral",
+        "displayName": "Rule",
+        "canonical": "#E2D8C4",
+        "tonalRamp": [
+          "#332B19",
+          "#5A4B2C",
+          "#816C40",
+          "#A98C53",
+          "#BDA679",
+          "#D0C0A0",
+          "#E3DAC7",
+          "#F7F4EE"
+        ]
+      },
+      "rule-dark": {
+        "role": "neutral",
+        "displayName": "Rule Dark",
+        "canonical": "#4A3B2C",
+        "tonalRamp": [
+          "#30261D",
+          "#554332",
+          "#796148",
+          "#9E7E5E",
+          "#B49B81",
+          "#CAB8A6",
+          "#E0D5CA",
+          "#F5F2EF"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "title": {
+        "displayName": "Slab Title",
+        "purpose": "Card and screen headings \u2014 the typed name on the card."
+      },
+      "quantity": {
+        "displayName": "Measurement",
+        "purpose": "Every ingredient quantity; measurement voice only."
+      },
+      "yield": {
+        "displayName": "Yield",
+        "purpose": "The 'Makes N' line; the only red-underlined text when scaled."
+      },
+      "annotation": {
+        "displayName": "Handwriting",
+        "purpose": "Lineage \u2014 variant and parent relations, pencil only."
+      },
+      "label": {
+        "displayName": "Stamped Label",
+        "purpose": "Timestamps and target labels."
+      },
+      "body": {
+        "displayName": "System Body",
+        "purpose": "Numbered steps; platform voice."
+      }
+    },
+    "shadows": [
+      {
+        "name": "stacked-card",
+        "value": "0 3px 10px rgba(36, 23, 16, 0.32)",
+        "purpose": "One shadow per card \u2014 cards resting on the box interior; offset+blur, never a flat halo."
+      }
+    ],
+    "motion": [
+      {
+        "name": "roll-in",
+        "value": "180ms easeOutExpo, translateY(35%) \u2192 0 with fade",
+        "purpose": "Rolling numerals: scaled quantities update in place, never a jump-cut."
+      },
+      {
+        "name": "recede",
+        "value": "200ms linear opacity 1 \u2192 0.55",
+        "purpose": "Focus-and-recede: sibling cards dim while a slider drags."
+      },
+      {
+        "name": "reduce-motion",
+        "value": "Duration.zero swaps",
+        "purpose": "Under MediaQuery.disableAnimations, rolls become instant cuts and dims apply instantly."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "phone-column",
+        "value": "480px max width, centered on every surface"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Recipe Card",
+      "kind": "card",
+      "refersTo": "recipe-card",
+      "description": "One recipe = one index card: slab title, pencil date, ruled Courier quantity rows, yield line, scale slider, steps.",
+      "html": "<div class=\"ds-recipe-card\"><h3 class=\"ds-card-title\">Butter cookies</h3><p class=\"ds-card-date\">created 2026-01-15 \u00b7 updated 2026-01-20</p><p class=\"ds-lineage\">variants: Egg-free butter cookies</p><div class=\"ds-qrow\"><span>250 g flour</span></div><div class=\"ds-qrow\"><span>200 g butter</span></div><div class=\"ds-yield\">Makes 24 cookies</div><p class=\"ds-target\">Target: 24 cookies</p><div class=\"ds-slider-track\"><div class=\"ds-slider-fill\"></div><div class=\"ds-slider-knob\"></div></div></div>",
+      "css": ".ds-recipe-card { background: #F7F2E9; color: #2B2118; border-radius: 4px; box-shadow: 0 3px 10px rgba(36,23,16,0.32); padding: 14px 16px; font-family: system-ui, sans-serif; } .ds-card-title { font-family: 'Zilla Slab', serif; font-weight: 600; font-size: 19px; margin: 0; } .ds-card-date { font-size: 10.5px; letter-spacing: 1.2px; color: #6E6252; margin: 3px 0 0; } .ds-lineage { font-family: 'Caveat', cursive; font-size: 17px; color: #6E6252; margin: 4px 0 0; } .ds-qrow { border-bottom: 1px solid #E2D8C4; padding: 6px 2px; font-family: 'Courier Prime', monospace; font-size: 14.5px; } .ds-yield { font-family: 'Courier Prime', monospace; font-weight: 700; font-size: 15.5px; margin-top: 12px; } .ds-target { font-size: 11.5px; letter-spacing: 0.5px; color: #6E6252; margin: 10px 0 4px; } .ds-slider-track { height: 4px; border-radius: 2px; background: #E2D8C4; position: relative; } .ds-slider-fill { position: absolute; inset: 0 66% 0 0; background: #6E6252; border-radius: 2px; } .ds-slider-knob { position: absolute; left: 34%; top: 50%; transform: translate(-50%,-50%); width: 16px; height: 16px; border-radius: 50%; background: #6E6252; }"
+    },
+    {
+      "name": "Variant Stamp",
+      "kind": "chip",
+      "refersTo": "variant-stamp",
+      "description": "Rotated red stamp marking a derivative recipe; red's first home.",
+      "html": "<div class=\"ds-card-stamped\"><h3 class=\"ds-card-title\">Egg-free butter cookies</h3><span class=\"ds-stamp\">VARIANT</span><p class=\"ds-lineage\">variant of Butter cookies</p></div>",
+      "css": ".ds-card-stamped { position: relative; background: #F7F2E9; border-radius: 4px; padding: 14px 16px; } .ds-card-stamped .ds-card-title { font-family: 'Zilla Slab', serif; font-weight: 600; font-size: 19px; margin: 0; padding-right: 96px; color: #2B2118; } .ds-stamp { position: absolute; top: 10px; right: 12px; transform: rotate(5deg); border: 2px solid #C03B2E; border-radius: 2px; color: #C03B2E; font-family: 'Zilla Slab', serif; font-weight: 600; font-size: 11px; letter-spacing: 2px; padding: 3px 8px; } .ds-lineage { font-family: 'Caveat', cursive; font-size: 17px; color: #6E6252; margin: 4px 0 0; }"
+    },
+    {
+      "name": "Scale Slider (changed)",
+      "kind": "input",
+      "refersTo": "yield-line-changed",
+      "description": "The card's scale control; accent only while scaled or dragged, with the red-underlined yield above.",
+      "html": "<div class=\"ds-scale\"><p class=\"ds-yield-changed\">Makes 36 cookies</p><p class=\"ds-target\">Target: 36 cookies</p><div class=\"ds-slider-track hot\"><div class=\"ds-slider-fill hot\"></div><div class=\"ds-slider-knob hot\"></div></div></div>",
+      "css": ".ds-scale { font-family: system-ui, sans-serif; } .ds-yield-changed { font-family: 'Courier Prime', monospace; font-weight: 700; font-size: 15.5px; color: #C03B2E; text-decoration: underline 2px #C03B2E; text-underline-offset: 3px; margin: 0 0 8px; } .ds-target { font-size: 11.5px; letter-spacing: 0.5px; color: #6E6252; margin: 0 0 6px; } .ds-slider-track { height: 4px; border-radius: 2px; background: #E2D8C4; position: relative; } .ds-slider-fill.hot { position: absolute; inset: 0 34% 0 0; background: #C03B2E; border-radius: 2px; } .ds-slider-knob.hot { position: absolute; left: 66%; top: 50%; transform: translate(-50%,-50%); width: 16px; height: 16px; border-radius: 50%; background: #C03B2E; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Recipe Box",
+    "overview": "Every recipe is an index card in one family box. The app is a walnut card box holding cream stock: titles are typed in a workmanlike slab, quantities are measurement type, lineage is penciled in handwriting, and a derivative is an annotated copy \u2014 stamped VARIANT, never re-typed from scratch. The world lends warmth and material; it never supplies navigation or controls, which stay standard Material 3. Density is ruled-card density: hairline rules every row, one spacing rhythm, no ornaments between the baker and the next number. The aesthetic philosophy is precision without intimidation \u2014 pro-grade formula discipline served on home-kitchen card stock.",
+    "keyCharacteristics": [
+      "Walnut ground, cream card faces, one red reserved for meaning",
+      "Quantities always in monospace measurement type, never decorative",
+      "Stacked-card shadows with offset and blur, like cards resting on cards",
+      "Lineage (variants, parents) in handwriting, never in system chrome",
+      "No dead controls: every visible control works"
+    ],
+    "rules": [
+      {
+        "name": "The Red Reservation Rule",
+        "body": "Stamp red appears on exactly three things: the VARIANT stamp, a changed yield line, and the 2px lid rule. It never decorates. An idle slider is pencil on rule, not red.",
+        "section": "colors"
+      },
+      {
+        "name": "The No Gray Rule",
+        "body": "Secondary text is tinted pencil (warm, hue-derived), never pure gray, on both cream and espresso.",
+        "section": "colors"
+      },
+      {
+        "name": "The Measurement Voice Rule",
+        "body": "Courier Prime is welded to measurement. Numbers live in the typewriter face; no other element may use it, and no quantity may appear in the system sans.",
+        "section": "typography"
+      },
+      {
+        "name": "The Two-Hand Rule",
+        "body": "Names are typed (slab), family history is handwritten (Caveat). A piece of text gets one voice, decided by what it is, not where it sits.",
+        "section": "typography"
+      }
+    ],
+    "dos": [
+      "Do keep stamp red for the VARIANT stamp, changed yields, and the lid rule \u2014 nothing else.",
+      "Do set every quantity in Courier Prime with tabular alignment.",
+      "Do render lineage (variant/parent relations) in Caveat pencil.",
+      "Do let approximations stay visible: seeds are offered, never imposed.",
+      "Do honor Reduce Motion: instant swaps instead of rolls and fades."
+    ],
+    "donts": [
+      "Don't ship food photography as layout structure \u2014 the box holds cards, not a photo feed.",
+      "Don't introduce a second accent color; the system has red and it is scarce.",
+      "Don't add dead controls (nav bars, FABs) before the features behind them exist.",
+      "Don't put a kicker or eyebrow label above a heading.",
+      "Don't set recipe identity data (steps, dates, lineage) from a scaled recipe instance \u2014 those come from the raw card; only quantities scale."
+    ]
+  }
+}

@@ -1,0 +1,188 @@
+---
+name: bellenissimos
+description: Recipe-scaling app for cakes, breads, and pies — every recipe an index card in one family box.
+colors:
+  walnut: "#3E2F23"
+  espresso: "#241B14"
+  card-cream: "#F7F2E9"
+  card-espresso: "#35291E"
+  ink: "#2B2118"
+  cream-ink: "#F1E9DA"
+  stamp-red: "#C03B2E"
+  stamp-red-dark: "#E06A55"
+  pencil: "#6E6252"
+  pencil-dark: "#B3A48D"
+  rule: "#E2D8C4"
+  rule-dark: "#4A3B2C"
+typography:
+  title:
+    fontFamily: "ZillaSlab"
+    fontSize: "19px"
+    fontWeight: 600
+    lineHeight: 1.25
+  quantity:
+    fontFamily: "CourierPrime"
+    fontSize: "14.5px"
+    fontWeight: 400
+    lineHeight: 1.3
+  yield:
+    fontFamily: "CourierPrime"
+    fontSize: "15.5px"
+    fontWeight: 700
+    lineHeight: 1.3
+  annotation:
+    fontFamily: "Caveat"
+    fontSize: "17px"
+    fontWeight: 400
+    lineHeight: 1.25
+  label:
+    fontFamily: "system-ui"
+    fontSize: "10.5px"
+    fontWeight: 400
+    letterSpacing: "1.2px"
+  body:
+    fontFamily: "system-ui"
+    fontSize: "13.5px"
+    fontWeight: 400
+    lineHeight: 1.45
+rounded:
+  card: "4px"
+  stamp: "2px"
+spacing:
+  xs: "3px"
+  sm: "8px"
+  md: "12px"
+  lg: "16px"
+components:
+  recipe-card:
+    backgroundColor: "{colors.card-cream}"
+    textColor: "{colors.ink}"
+    rounded: "{rounded.card}"
+  variant-stamp:
+    backgroundColor: "transparent"
+    textColor: "{colors.stamp-red}"
+    rounded: "{rounded.stamp}"
+  yield-line-changed:
+    backgroundColor: "transparent"
+    textColor: "{colors.stamp-red}"
+  quantity-row:
+    backgroundColor: "transparent"
+    textColor: "{colors.ink}"
+---
+
+# Design System: bellenissimos
+
+## Overview
+
+**Creative North Star: "The Recipe Box"**
+
+Every recipe is an index card in one family box. The app is a walnut card box holding cream stock: titles are typed in a workmanlike slab, quantities are measurement type, lineage is penciled in handwriting, and a derivative is an annotated copy — stamped VARIANT, never re-typed from scratch. The world lends warmth and material; it never supplies navigation or controls, which stay standard Material 3.
+
+Density is ruled-card density: hairline rules every row, one spacing rhythm, no ornaments between the baker and the next number. The aesthetic philosophy is precision without intimidation — pro-grade formula discipline served on home-kitchen card stock.
+
+**Key Characteristics:**
+- Walnut ground, cream card faces, one red reserved for meaning
+- Quantities always in monospace measurement type, never decorative
+- Stacked-card shadows with offset and blur, like cards resting on cards
+- Lineage (variants, parents) in handwriting, never in system chrome
+- No dead controls: every visible control works
+
+## Colors
+
+A warm paper-and-timber palette where red is scarce and therefore loud.
+
+### Primary
+- **Stamp Red** (#C03B2E): the accent — the VARIANT stamp border and text, the changed-yield underline, the lid rule under the app bar, and slider accents only while scaled or dragged. Its rarity is the point. Dark scheme lightens it to #E06A55 for contrast.
+
+### Neutral
+- **Walnut** (#3E2F23): the box interior — scaffold ground and app bar in the light scheme; deepens to **Espresso** (#241B14) in dark.
+- **Card Cream** (#F7F2E9): every card face in light; **Card Espresso** (#35291E) in dark.
+- **Ink** (#2B2118): titles, quantities, steps on cream; **Cream Ink** (#F1E9DA) on espresso.
+- **Pencil** (#6E6252): dates, target labels, idle slider thumbs — everything secondary is pencil, never gray; **Pencil Dark** (#B3A48D) in dark.
+- **Rule** (#E2D8C4): 1px hairlines under every quantity row, inactive slider track; **Rule Dark** (#4A3B2C) in dark.
+
+### Named Rules
+**The Red Reservation Rule.** Stamp red appears on exactly three things: the VARIANT stamp, a changed yield line, and the 2px lid rule. It never decorates. An idle slider is pencil on rule, not red.
+
+**The No Gray Rule.** Secondary text is tinted pencil (warm, hue-derived), never pure gray, on both cream and espresso.
+
+## Typography
+
+**Title Font:** Zilla Slab SemiBold (600), self-hosted
+**Quantity Font:** Courier Prime (400/700), self-hosted
+**Annotation Font:** Caveat (400), self-hosted
+**Body Font:** system-ui (platform voice: Roboto/SF)
+
+**Character:** a typewritten recipe card annotated by hand — the slab carries names, the typewriter face carries every number, the handwriting carries family history.
+
+### Hierarchy
+- **Title** (600, 19px): card and screen headings.
+- **Yield** (700, 15.5px): the "Makes N …" line; the only bold-red-underlined text when scaled.
+- **Quantity** (400, 14.5px): every ruled ingredient row.
+- **Annotation** (400, 17px): lineage lines — "variant of …", "variants: …".
+- **Label** (400, 10.5px, +1.2px tracking): timestamps and target labels.
+- **Body** (400, 13.5px, 1.45 line height): numbered steps.
+
+### Named Rules
+**The Measurement Voice Rule.** Courier Prime is welded to measurement. Numbers live in the typewriter face; no other element may use it, and no quantity may appear in the system sans.
+
+**The Two-Hand Rule.** Names are typed (slab), family history is handwritten (Caveat). A piece of text gets one voice, decided by what it is, not where it sits.
+
+## Layout
+
+One centered mobile column, max width 480px, on every surface — the desktop dev window is phone-shaped by design. Cards stack vertically with 16px gaps; card interiors use a 16/14px padding with a single vertical rhythm (3px meta offsets, 8px group breaks, 12px before the yield line). Section order on the home screen: butter cookies → egg-free variant → loaf at the fold.
+
+## Elevation & Depth
+
+Cards rest on the box like stacked stock: every card carries a soft offset shadow (0 3px 10px rgba(36, 23, 16, 0.32)) — offset and blur, never a flat halo. Inside a card, depth is flat: hairline rules separate rows, and hierarchy comes from type voice, not elevation.
+
+## Shapes
+
+Card corners 4px — nearly square, like real index cards. The stamp is 2px with a 2px border, rotated ~5°, always top-right. Row separators are 1px hairlines. Nothing else rounds; pill shapes and large radii belong to other worlds.
+
+## Components
+
+### Recipe Card
+- **Shape:** 4px radius, cream face (light) / espresso face (dark)
+- **Background:** {colors.card-cream} / {colors.card-espresso}
+- **Shadow Strategy:** stacked-card, offset+blur, one shadow per card
+- **Internal Padding:** 16px horizontal, 14px vertical
+- **Order inside:** title (slab) → date (label, pencil) → lineage (Caveat) → ruled quantity rows → yield line → target label + slider → numbered steps
+
+### Quantity Row
+- **Style:** full-width ListTile-height row, name and amount in Courier, 1px rule underneath
+- **Behavior:** when its value changes, the row content rolls in place (old figure slides up and fades, new slides in from below, 180ms easeOutExpo); under Reduce Motion it swaps instantly
+
+### Yield Line
+- **Style:** Courier 700 15.5px
+- **State:** at rest, ink/cream-ink; when the recipe is scaled from its base, stamp red with a 2px red underline — the red underline is reserved for this
+
+### Scale Slider
+- **Style:** 4px track; idle = rule track with pencil thumb; scaled or actively dragged = accent track and thumb
+- **A11y:** wrapped in a Semantics label ("Scale <recipe> yield")
+- **Behavior:** while dragged, sibling cards dim to 55% opacity (200ms; instant under Reduce Motion)
+
+### Variant Stamp
+- **Shape:** 2px radius, 2px stamp-red border, transparent fill, rotated ~5°
+- **Typography:** ZillaSlab 600 11px, +2px tracking, uppercase "VARIANT"
+- **Position:** top-right of the card, overlapping nothing (titles reserve 96px of right padding on stamped cards)
+
+### Lineage Note
+- **Style:** Caveat 17px, pencil — "variant of Butter cookies", "variants: …"
+- **Rule:** lineage is handwriting; it never appears in system chrome
+
+## Do's and Don'ts
+
+### Do:
+- **Do** keep stamp red for the VARIANT stamp, changed yields, and the lid rule — nothing else.
+- **Do** set every quantity in Courier Prime with tabular alignment.
+- **Do** render lineage (variant/parent relations) in Caveat pencil.
+- **Do** let approximations stay visible: seeds are offered, never imposed.
+- **Do** honor Reduce Motion: instant swaps instead of rolls and fades.
+
+### Don't:
+- **Don't** ship food photography as layout structure — the box holds cards, not a photo feed.
+- **Don't** introduce a second accent color; the system has red and it is scarce.
+- **Don't** add dead controls (nav bars, FABs) before the features behind them exist.
+- **Don't** put a kicker or eyebrow label above a heading.
+- **Don't** set recipe identity data (steps, dates, lineage) from a scaled recipe instance — those come from the raw card; only quantities scale.

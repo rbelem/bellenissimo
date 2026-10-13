@@ -1,6 +1,6 @@
 # Bellenissimos — Handoff
 
-Updated: 2026-10-12 · HEAD `6fd7a93` on `main` · working tree clean
+Updated: 2026-10-13 · HEAD `main` · design world committed
 
 ## What this is
 
@@ -26,6 +26,9 @@ packages/core/          pure-Dart engine, zero Flutter deps, 100% lcov enforced
   lib/src/recipe_import.dart schema.org/Recipe JSON-LD → Recipe, issue-collecting, never throws
   lib/src/seeds.dart         approximate cup-weight table (240 ml US cup), user-overridable by design
 apps/app/               Flutter shell (android/ios/linux/web), path dep ../../packages/core
+  lib/theme.dart            Recipe Box tokens (BoxTokens ThemeExtension), light+dark schemes, font voices
+DESIGN.md               visual design system (tokens normative; "The Recipe Box" world)
+PRODUCT.md              product record (users, purpose, positioning, principles)
 flake.nix               linux-desktop dev shell (flutter, gtk3, cmake, ninja, clang, pkg-config)
 devbox.json             dart, flutter, gtk3, cmake, ninja, clang, pkg-config + scripts
 ```
@@ -96,8 +99,14 @@ devbox.json             dart, flutter, gtk3, cmake, ninja, clang, pkg-config + s
 - 159 tests (core 152, app 7) · analyzer clean · 100% lcov both packages
 - Engine: units, conversions, seeds, yield scaling, rounding, pans, trees,
   layered cakes, replacements, blends, substitutions, JSON import (steps)
-- App: recipe list with live scaling sliders, steps, variant/parent lines,
-  timestamps; a seeded egg-free derivative demonstrates the family links
+- App: "The Recipe Box" visual world (DESIGN.md) — walnut/cream cards,
+  Zilla Slab + Courier Prime + Caveat bundled, light+dark schemes; recipe
+  list with on-card scaling sliders, rolling in-place numerals, focus-and-
+  recede while dragging, VARIANT stamps + Caveat lineage, red reserved for
+  stamp/changed-yield/lid rule; identity data renders from raw seeds,
+  quantities from scaledBy() (a quantity-only projection)
+- Design system: DESIGN.md + .impeccable/design.json (tokens); finish
+  review shipped, evidence rasters in .impeccable/review/
 - Desktop window build verified; web server currently OFF
 
 ## Next steps, priority order
