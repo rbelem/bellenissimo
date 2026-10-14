@@ -1,5 +1,5 @@
 import 'package:bellenissimos_app/main.dart' as app;
-import 'package:bellenissimos_app/recipes_page.dart';
+import 'package:bellenissimos_app/recipe_card.dart';
 import 'package:bellenissimos_app/seed_recipes.dart';
 import 'package:bellenissimos_core/core.dart';
 import 'package:flutter/material.dart';
