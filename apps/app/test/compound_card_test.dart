@@ -56,7 +56,12 @@ Recipe dishOf(RecipeComponent component) => Recipe.compound(
   tree: RecipeTree(name: 'Torte', components: [component]),
 );
 
-Future<void> pumpCard(WidgetTester tester, Recipe recipe, {double? target}) =>
+Future<void> pumpCard(
+  WidgetTester tester,
+  Recipe recipe, {
+  double? target,
+  MassUnit massUnit = MassUnit.g,
+}) =>
     tester.pumpWidget(
       MaterialApp(
         theme: recipeBoxLight,
@@ -67,7 +72,7 @@ Future<void> pumpCard(WidgetTester tester, Recipe recipe, {double? target}) =>
               target: target ?? 1,
               activeScale: null,
               subs: const {},
-              massUnit: MassUnit.g,
+              massUnit: massUnit,
               book: RecipeBook(const []),
               panDraft: PanDraft(),
               openBlendRows: const {},
@@ -252,6 +257,16 @@ void main() {
       expect(tester.takeException(), isNull);
       expect(find.text('Sponge × 3'), findsOneWidget);
       expect(find.text('900 g flour'), findsOneWidget);
+    });
+
+    testWidgets('the mass toggle reaches block rows and the total', (
+      tester,
+    ) async {
+      await pumpCard(tester, torte(), massUnit: MassUnit.oz);
+
+      expect(find.text('31.7 oz flour'), findsOneWidget);
+      expect(find.text('3 piece egg'), findsOneWidget);
+      expect(find.text('Total 50.4 oz'), findsOneWidget);
     });
   });
 }

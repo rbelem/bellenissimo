@@ -315,4 +315,71 @@ void main() {
     expect(find.text('Give the dish a name and complete rows'), findsOneWidget);
     expect(store.all().length, 3);
   });
+
+  testWidgets('rows can be removed and the sheet dismissed', (tester) async {
+    await pumpApp(tester);
+    await pumpHarness(tester);
+
+    await tester.enterText(find.byKey(const ValueKey('editor-name')), 'Torte');
+    await addPart(tester, 'butter-cookies');
+    await tester.tap(find.byKey(const ValueKey('editor-add-line')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('editor-comp-1-ingredient')),
+      'cocoa',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('editor-comp-1-amount')),
+      '30',
+    );
+
+    await tester.tap(find.byKey(const ValueKey('editor-comp-1-remove')));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('editor-comp-1-ingredient')),
+      findsNothing,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('editor-save')));
+    await tester.pumpAndSettle();
+    expect(popped!.tree!.components.length, 1);
+    expect(store.all().length, 4);
+
+    await pumpHarness(tester);
+    await addPart(tester, 'sandwich-loaf');
+    await tester.tap(find.byKey(const ValueKey('editor-comp-0-remove')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('editor-comp-0-pick')), findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('editor-save')));
+    await tester.pumpAndSettle();
+    expect(popped, isNull);
+    expect(find.text('Give the dish a name and complete rows'), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.close));
+    await tester.pumpAndSettle();
+    expect(popped, isNull);
+    expect(find.byKey(const ValueKey('editor-save')), findsNothing);
+    expect(store.all().length, 4);
+  });
+
+  testWidgets('a restored part row can be re-picked from the field', (
+    tester,
+  ) async {
+    await pumpApp(tester);
+    await pumpHarness(tester, recipe: editableDish());
+
+    await tester.tap(find.byKey(const ValueKey('editor-comp-0-pick')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('compound-pick-sandwich-loaf')));
+    await tester.pumpAndSettle();
+
+    expect(pickText(tester, 0), 'Sandwich loaf');
+    await tester.tap(find.byKey(const ValueKey('editor-save')));
+    await tester.pumpAndSettle();
+
+    final ref = popped!.tree!.components.first as ComponentRef;
+    expect(ref.recipe.id, 'sandwich-loaf');
+    expect(ref.factor, 0.75);
+  });
 }
