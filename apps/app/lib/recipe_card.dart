@@ -131,6 +131,8 @@ class RecipeCard extends StatelessWidget {
     required this.massUnit,
     required this.book,
     required this.panDraft,
+    required this.openBlendRows,
+    required this.onToggleBlendRow,
     required this.onScale,
     required this.onScaleStart,
     required this.onScaleEnd,
@@ -146,6 +148,12 @@ class RecipeCard extends StatelessWidget {
   final MassUnit massUnit;
   final RecipeBook book;
   final PanDraft panDraft;
+
+  /// Row keys whose attached blend is expanded; ephemeral view state
+  /// owned by the page, like substitutions.
+  final Set<String> openBlendRows;
+
+  final ValueChanged<String> onToggleBlendRow;
   final ValueChanged<double> onScale;
   final VoidCallback onScaleStart;
   final VoidCallback onScaleEnd;
@@ -225,6 +233,7 @@ class RecipeCard extends StatelessWidget {
               ..._familyLines(context, raw),
               const SizedBox(height: 8),
               ..._lines(context, scaled, prefix),
+              ..._blendLines(context, scaled, prefix),
               Padding(
                 padding: const EdgeInsets.only(top: 12),
                 child: rollIn(
@@ -339,6 +348,127 @@ class RecipeCard extends StatelessWidget {
         _lineTile(context, line, prefix),
       ),
   ];
+
+  Quantity _displayGrams(double grams) {
+    final quantity = Quantity(grams, Unit.g);
+    return massUnit == MassUnit.oz ? quantity.convertTo(Unit.oz) : quantity;
+  }
+
+  /// Attached blends ride the recipe's scale pass: the collapsed row
+  /// shows the scaled grams, expanded parts recompute from it in one
+  /// pass, display rounding only — no part rounding step ever applies.
+  List<Widget> _blendLines(
+    BuildContext context,
+    Recipe scaled,
+    String prefix,
+  ) => [
+    for (final line in scaled.blends)
+      rollIn(
+        context,
+        '${quantityText(_displayGrams(line.grams))} ${line.blend.name}',
+        _blendTile(context, line, prefix),
+      ),
+  ];
+
+  Widget _blendTile(BuildContext context, BlendLine line, String prefix) {
+    final tokens = Theme.of(context).extension<BoxTokens>()!;
+    final blend = line.blend;
+    final rowKey = '$prefix-line-${blend.id ?? blend.name}';
+    final open = openBlendRows.contains(rowKey);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            border: Border(bottom: BorderSide(color: tokens.rule)),
+          ),
+          child: Material(
+            type: MaterialType.transparency,
+            child: Semantics(
+              label: 'Show ${blend.name} composition',
+              child: ListTile(
+                key: ValueKey(rowKey),
+                dense: true,
+                visualDensity: VisualDensity.compact,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                onTap: () => onToggleBlendRow(rowKey),
+                title: Text(
+                  '${quantityText(_displayGrams(line.grams))} ${blend.name}',
+                  style: boxQuantity(context),
+                ),
+                trailing: Icon(
+                  open ? Icons.expand_less : Icons.expand_more,
+                  key: ValueKey('$rowKey-toggle'),
+                  size: 20,
+                  color: tokens.pencil,
+                ),
+              ),
+            ),
+          ),
+        ),
+        if (open) ..._blendParts(context, line, rowKey),
+      ],
+    );
+  }
+
+  List<Widget> _blendParts(
+    BuildContext context,
+    BlendLine line,
+    String rowKey,
+  ) {
+    final tokens = Theme.of(context).extension<BoxTokens>()!;
+    final blend = line.blend;
+    final parts = <Widget>[
+      for (final entry in blend.grams.entries)
+        Container(
+          decoration: BoxDecoration(
+            border: Border(bottom: BorderSide(color: tokens.rule)),
+          ),
+          child: Material(
+            type: MaterialType.transparency,
+            child: ListTile(
+              key: ValueKey('$rowKey-part-${entry.key.id}'),
+              dense: true,
+              visualDensity: VisualDensity.compact,
+              contentPadding: const EdgeInsets.only(left: 20, right: 4),
+              title: Text(
+                '${quantityText(_displayGrams(line.grams * entry.value / blend.totalGrams))} ${entry.key.id}',
+                style: boxQuantity(context, size: 13.5),
+              ),
+            ),
+          ),
+        ),
+    ];
+    if (blend is SweetenerBlend) {
+      final sugarGrams = line.grams * blend.sucroseEquivalentPerGram;
+      parts.add(
+        Padding(
+          padding: const EdgeInsets.only(left: 20, top: 4),
+          child: Text(
+            'sweetness of ≈ ${sugarGrams.round()} g sugar',
+            key: ValueKey('$rowKey-sugar-equiv'),
+            style: boxQuantity(
+              context,
+              size: 12.5,
+            ).copyWith(color: tokens.pencil),
+          ),
+        ),
+      );
+      if (blend.losesBulk) {
+        parts.add(
+          Padding(
+            padding: const EdgeInsets.only(left: 20, bottom: 4),
+            child: Text(
+              "won't bulk like sugar — structure will shift",
+              key: ValueKey('$rowKey-bulk-note'),
+              style: boxAnnotation(context, size: 14),
+            ),
+          ),
+        );
+      }
+    }
+    return parts;
+  }
 
   Quantity _displayQuantity(RecipeLine line) {
     final sub = subs[line.ingredient.id];

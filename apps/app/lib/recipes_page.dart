@@ -40,6 +40,7 @@ class _RecipesPageState extends State<RecipesPage> {
   final Map<String, Map<String, Substitution>> _subs = {};
   MassUnit _massUnit = MassUnit.g;
   String? _activeScale;
+  final Set<String> _openBlendRows = {};
   final ValueNotifier<String> _filter = ValueNotifier('');
 
   /// Sentinel marking where the blend section starts in the card list.
@@ -95,7 +96,7 @@ class _RecipesPageState extends State<RecipesPage> {
   }
 
   Future<void> _addRecipe() async {
-    final saved = await showRecipeEditor(context, _store);
+    final saved = await showRecipeEditor(context, _store, blends: _blendStore);
     if (saved != null) setState(_reload);
   }
 
@@ -231,12 +232,22 @@ class _RecipesPageState extends State<RecipesPage> {
   }
 
   Future<void> _editRecipe(Recipe raw) async {
-    final saved = await showRecipeEditor(context, _store, recipe: raw);
+    final saved = await showRecipeEditor(
+      context,
+      _store,
+      blends: _blendStore,
+      recipe: raw,
+    );
     if (saved != null) setState(_reload);
   }
 
   Future<void> _newVariant(Recipe raw) async {
-    final saved = await showRecipeEditor(context, _store, parent: raw);
+    final saved = await showRecipeEditor(
+      context,
+      _store,
+      blends: _blendStore,
+      parent: raw,
+    );
     if (saved != null) setState(_reload);
   }
 
@@ -466,6 +477,10 @@ class _RecipesPageState extends State<RecipesPage> {
       massUnit: _massUnit,
       book: _book,
       panDraft: _pans.putIfAbsent(prefix, PanDraft.new),
+      openBlendRows: _openBlendRows,
+      onToggleBlendRow: (rowKey) => setState(() {
+        if (!_openBlendRows.remove(rowKey)) _openBlendRows.add(rowKey);
+      }),
       onScale: (value) => setState(() => _targets[raw.id!] = value),
       onScaleStart: () => setState(() => _activeScale = prefix),
       onScaleEnd: () => setState(() => _activeScale = null),

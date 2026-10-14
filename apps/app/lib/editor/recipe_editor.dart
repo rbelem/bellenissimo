@@ -2,6 +2,7 @@ import 'package:bellenissimos_core/core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../persistence/blend_store.dart';
 import '../persistence/recipe_store.dart';
 import '../theme.dart';
 
@@ -10,11 +11,16 @@ class RecipeEditor extends StatefulWidget {
   const RecipeEditor({
     super.key,
     required this.store,
+    this.blends,
     this.recipe,
     this.parent,
   });
 
   final RecipeStore store;
+
+  /// The blend library behind the attach control; null or empty hides
+  /// the control entirely.
+  final BlendStore? blends;
 
   /// The recipe being edited; null creates a new one.
   final Recipe? recipe;
@@ -32,6 +38,8 @@ class _RecipeEditorState extends State<RecipeEditor> {
   late final List<TextEditingController> _amounts;
   late final List<TextEditingController> _ingredients;
   late final List<Unit> _units;
+  late final List<BlendLine> _blendLines;
+  late final List<TextEditingController> _blendGrams;
   late bool _piecesMode;
   late final TextEditingController _yieldValue;
 
@@ -41,7 +49,8 @@ class _RecipeEditorState extends State<RecipeEditor> {
   void initState() {
     super.initState();
     final source = widget.recipe ?? widget.parent;
-    final initialLines = source?.lines ??
+    final initialLines =
+        source?.lines ??
         <RecipeLine>[
           RecipeLine(seedIngredients['flour']!, const Quantity(500, Unit.g)),
         ];
@@ -56,6 +65,11 @@ class _RecipeEditorState extends State<RecipeEditor> {
         TextEditingController(text: line.ingredient.id),
     ];
     _units = [for (final line in initialLines) line.quantity.unit];
+    _blendLines = [...?source?.blends];
+    _blendGrams = [
+      for (final line in _blendLines)
+        TextEditingController(text: _formatAmount(line.grams)),
+    ];
     final count = widget.recipe?.yield.count ?? widget.parent?.yield.count;
     final grams =
         widget.recipe?.yield.totalGrams ?? widget.parent?.yield.totalGrams;
@@ -71,7 +85,7 @@ class _RecipeEditorState extends State<RecipeEditor> {
     _name.dispose();
     _steps.dispose();
     _yieldValue.dispose();
-    for (final c in [..._amounts, ..._ingredients]) {
+    for (final c in [..._amounts, ..._ingredients, ..._blendGrams]) {
       c.dispose();
     }
     super.dispose();
@@ -86,10 +100,10 @@ class _RecipeEditorState extends State<RecipeEditor> {
       amount % 1 == 0 ? amount.round().toString() : '$amount';
 
   void _addLine() => setState(() {
-        _ingredients.add(TextEditingController());
-        _amounts.add(TextEditingController());
-        _units.add(Unit.g);
-      });
+    _ingredients.add(TextEditingController());
+    _amounts.add(TextEditingController());
+    _units.add(Unit.g);
+  });
 
   Recipe? _buildRecipe() {
     final name = _name.text.trim();
@@ -100,12 +114,24 @@ class _RecipeEditorState extends State<RecipeEditor> {
       final amount = double.tryParse(_amounts[i].text.replaceAll(',', '.'));
       if (ingredientId.isEmpty || amount == null) return null;
       final seed = seedIngredients[ingredientId];
-      lines.add(RecipeLine(
-        seed ?? Ingredient(ingredientId),
-        Quantity(amount, _units[i]),
-      ));
+      lines.add(
+        RecipeLine(
+          seed ?? Ingredient(ingredientId),
+          Quantity(amount, _units[i]),
+        ),
+      );
     }
     if (lines.isEmpty) return null;
+    final blends = <BlendLine>[];
+    for (var i = 0; i < _blendLines.length; i++) {
+      final grams = double.tryParse(_blendGrams[i].text.replaceAll(',', '.'));
+      if (grams == null || grams <= 0) return null;
+      // Re-resolve at save time so a blend edited while this sheet sat
+      // open lands in the recipe at its newest value.
+      final id = _blendLines[i].blend.id;
+      final current = id == null ? null : widget.blends?.byId(id)?.blend;
+      blends.add(BlendLine(current ?? _blendLines[i].blend, grams));
+    }
     final yieldValue = double.tryParse(_yieldValue.text.replaceAll(',', '.'));
     if (yieldValue == null || yieldValue <= 0) return null;
     final now = DateTime.now();
@@ -119,6 +145,7 @@ class _RecipeEditorState extends State<RecipeEditor> {
         totalGrams: _piecesMode ? null : yieldValue,
       ),
       lines: lines,
+      blends: blends,
       steps: [
         for (final step in _steps.text.split('\n'))
           if (step.trim().isNotEmpty) step.trim(),
@@ -130,11 +157,50 @@ class _RecipeEditorState extends State<RecipeEditor> {
 
   String _uniqueId(String name) => widget.store.uniqueId(name);
 
+  List<Blend> get _libraryBlends => [
+    if (widget.blends != null)
+      for (final record in widget.blends!.all())
+        if (record.blend.id != null) record.blend,
+  ];
+
+  Future<void> _attachBlend() async {
+    final picked = await showModalBottomSheet<Blend>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final blend in _libraryBlends)
+              ListTile(
+                key: ValueKey('attach-blend-${blend.id}'),
+                title: Text(blend.name),
+                subtitle: Text(
+                  '${blend.grams.keys.map((i) => i.id).join(' + ')}'
+                  ' · ${blend.totalGrams.round()} g',
+                  style: boxAnnotation(context, size: 14),
+                ),
+                onTap: () => Navigator.of(context).pop(blend),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (picked == null) return;
+    setState(() {
+      _blendLines.add(BlendLine(picked, picked.totalGrams));
+      _blendGrams.add(
+        TextEditingController(text: _formatAmount(picked.totalGrams)),
+      );
+    });
+  }
+
   Future<void> _save() async {
     final recipe = _buildRecipe();
     if (recipe == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Give the recipe a name and complete lines')),
+        const SnackBar(
+          content: Text('Give the recipe a name and complete lines'),
+        ),
       );
       return;
     }
@@ -145,9 +211,7 @@ class _RecipeEditorState extends State<RecipeEditor> {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.viewInsetsOf(context).bottom,
-      ),
+      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
       child: SizedBox(
         height: MediaQuery.sizeOf(context).height * 0.88,
         child: Column(
@@ -243,8 +307,8 @@ class _RecipeEditorState extends State<RecipeEditor> {
                                 controller: _amounts[i],
                                 keyboardType:
                                     const TextInputType.numberWithOptions(
-                                  decimal: true,
-                                ),
+                                      decimal: true,
+                                    ),
                                 inputFormatters: [
                                   FilteringTextInputFormatter.allow(
                                     RegExp(r'[0-9.,]'),
@@ -281,10 +345,10 @@ class _RecipeEditorState extends State<RecipeEditor> {
                               tooltip: 'Remove line',
                               onPressed: _ingredients.length > 1
                                   ? () => setState(() {
-                                        _ingredients.removeAt(i);
-                                        _amounts.removeAt(i);
-                                        _units.removeAt(i);
-                                      })
+                                      _ingredients.removeAt(i);
+                                      _amounts.removeAt(i);
+                                      _units.removeAt(i);
+                                    })
                                   : null,
                             ),
                           ],
@@ -296,6 +360,67 @@ class _RecipeEditorState extends State<RecipeEditor> {
                       icon: const Icon(Icons.add),
                       label: const Text('Add ingredient'),
                     ),
+                    if (_libraryBlends.isNotEmpty) ...[
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: TextButton.icon(
+                          key: const ValueKey('editor-attach-blend'),
+                          onPressed: _attachBlend,
+                          icon: const Icon(Icons.call_merge),
+                          label: const Text('Use a blend'),
+                        ),
+                      ),
+                      for (var i = 0; i < _blendLines.length; i++)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Expanded(
+                                flex: 3,
+                                child: TextFormField(
+                                  initialValue: _blendLines[i].blend.name,
+                                  readOnly: true,
+                                  style: boxQuantity(context),
+                                  decoration: InputDecoration(
+                                    labelText: i == 0 ? 'Blend' : null,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                flex: 2,
+                                child: TextField(
+                                  key: ValueKey('editor-attached-grams-$i'),
+                                  controller: _blendGrams[i],
+                                  keyboardType:
+                                      const TextInputType.numberWithOptions(
+                                        decimal: true,
+                                      ),
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.allow(
+                                      RegExp(r'[0-9.,]'),
+                                    ),
+                                  ],
+                                  style: boxQuantity(context),
+                                  decoration: const InputDecoration(
+                                    labelText: 'grams',
+                                  ),
+                                ),
+                              ),
+                              IconButton(
+                                key: ValueKey('editor-attached-remove-$i'),
+                                icon: const Icon(Icons.remove_circle_outline),
+                                tooltip: 'Remove blend',
+                                onPressed: () => setState(() {
+                                  _blendLines.removeAt(i);
+                                  _blendGrams.removeAt(i);
+                                }),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
                     const SizedBox(height: 8),
                     TextField(
                       key: const ValueKey('editor-steps'),
@@ -331,6 +456,7 @@ class _RecipeEditorState extends State<RecipeEditor> {
 Future<Recipe?> showRecipeEditor(
   BuildContext context,
   RecipeStore store, {
+  BlendStore? blends,
   Recipe? recipe,
   Recipe? parent,
 }) {
@@ -342,6 +468,11 @@ Future<Recipe?> showRecipeEditor(
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(4)),
     ),
-    builder: (_) => RecipeEditor(store: store, recipe: recipe, parent: parent),
+    builder: (_) => RecipeEditor(
+      store: store,
+      blends: blends,
+      recipe: recipe,
+      parent: parent,
+    ),
   );
 }
