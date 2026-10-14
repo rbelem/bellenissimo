@@ -566,22 +566,16 @@ class RecipeCard extends StatelessWidget {
     if (block.recipe == null) {
       return [for (final line in block.leaves) _leafRow(line)];
     }
-    final sums =
-        <String, ({Unit unit, double amount, Ingredient ingredient})>{};
+    final sums = <String, ({Unit unit, double amount})>{};
     for (final ref in block.refs) {
       for (final line in ref.recipe.scaledBy(ref.factor).lines) {
         final id = line.ingredient.id;
         final prev = sums[id];
         sums[id] = prev == null
-            ? (
-                unit: line.quantity.unit,
-                amount: line.quantity.amount,
-                ingredient: line.ingredient,
-              )
+            ? (unit: line.quantity.unit, amount: line.quantity.amount)
             : (
                 unit: prev.unit,
                 amount: prev.amount + line.quantity.amount,
-                ingredient: prev.ingredient,
               );
       }
     }
@@ -591,9 +585,7 @@ class RecipeCard extends StatelessWidget {
     ];
   }
 
-  Quantity _displaySum(
-    ({Unit unit, double amount, Ingredient ingredient}) sum,
-  ) {
+  Quantity _displaySum(({Unit unit, double amount}) sum) {
     var quantity = Quantity(sum.amount, sum.unit);
     if (massUnit == MassUnit.oz && sum.unit.kind == UnitKind.mass) {
       quantity = quantity.convertTo(Unit.oz);
