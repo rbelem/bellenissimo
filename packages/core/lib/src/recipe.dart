@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'ingredient.dart';
 import 'quantity.dart';
 
@@ -22,10 +24,15 @@ class RecipeLine {
   final Ingredient ingredient;
   final Quantity quantity;
 
-  /// Scales the amount and snaps it to the ingredient's rounding step
-  /// when it declares one (half eggs, whole tins).
+  /// Scales the amount by `factor^scalingExponent` and snaps the result
+  /// to the ingredient's rounding step when it declares one (half eggs,
+  /// whole tins). The exponent and the rounding step apply exactly once
+  /// per scale pass; the default exponent of 1 scales bit-for-bit like
+  /// plain multiplication.
   RecipeLine scaledBy(num factor) {
-    final scaled = quantity.scaledBy(factor);
+    final exponent = ingredient.scalingExponent ?? 1.0;
+    final scaled =
+        quantity.scaledBy(exponent == 1.0 ? factor : math.pow(factor, exponent));
     final step = ingredient.roundingStep;
     return RecipeLine(ingredient, step == null ? scaled : scaled.roundedToNearest(step));
   }
@@ -110,7 +117,8 @@ class Recipe {
   }
 
   /// Returns the recipe scaled by [factor]. Yield dimensions scale too;
-  /// rounding steps on ingredients (half eggs) are applied per line.
+  /// rounding steps and scaling exponents on ingredients are applied
+  /// per line, exactly once.
   Recipe scaledBy(num factor) => Recipe(
         name: name,
         yield: YieldSpec(

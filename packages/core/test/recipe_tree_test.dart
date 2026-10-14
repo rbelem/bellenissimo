@@ -71,6 +71,28 @@ void main() {
       expect(ref.factor, 0.6);
       expect(ref.recipe.lines[1].quantity.amount, 0.5);
     });
+
+    test('a sub-linear leavening exponent applies once with the compound factor', () {
+      const leavened = Recipe(
+        name: 'sponge',
+        yield: YieldSpec(count: 1),
+        lines: [
+          RecipeLine(
+            Ingredient('yeast', gramsPerMl: 0.6, scalingExponent: 0.7),
+            Quantity(10, Unit.g),
+          ),
+        ],
+      );
+      final tree = RecipeTree(name: 'big loaf', components: [
+        ComponentRef(leavened, factor: 2.0),
+      ]);
+
+      final scaled = tree.scaledBy(2.0);
+
+      final ref = scaled.components.single as ComponentRef;
+      expect(ref.factor, 4.0);
+      expect(ref.recipe.lines.single.quantity.amount, closeTo(26.39, 0.01));
+    });
   });
 
   group('layered cakes', () {

@@ -95,4 +95,39 @@ void main() {
       expect(cookieRecipe.yield.count, 24);
     });
   });
+
+  group('role-based scaling exponents', () {
+    test('a line without an exponent scales linearly', () {
+      const line = RecipeLine(
+        Ingredient('flour', gramsPerMl: 0.5),
+        Quantity(100, Unit.g),
+      );
+      expect(line.scaledBy(4).quantity.amount, 400);
+    });
+
+    test('an exponent of 1 scales like a linear line', () {
+      const line = RecipeLine(
+        Ingredient('butter', gramsPerMl: 0.95, scalingExponent: 1.0),
+        Quantity(200, Unit.g),
+      );
+      expect(line.scaledBy(1.2).quantity.amount, closeTo(240, 0.001));
+    });
+
+    test('a leavening line scales sub-linearly', () {
+      const yeast = Ingredient('yeast', gramsPerMl: 0.6, scalingExponent: 0.7);
+      const line = RecipeLine(yeast, Quantity(10, Unit.g));
+      expect(line.scaledBy(4).quantity.amount, closeTo(26.39, 0.01));
+    });
+
+    test('the rounding step applies after the exponent', () {
+      const yeast = Ingredient(
+        'yeast',
+        gramsPerMl: 0.6,
+        scalingExponent: 0.7,
+        roundingStep: 0.5,
+      );
+      const line = RecipeLine(yeast, Quantity(10, Unit.g));
+      expect(line.scaledBy(4).quantity.amount, 26.5);
+    });
+  });
 }

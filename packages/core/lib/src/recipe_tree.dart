@@ -53,8 +53,9 @@ class RecipeTree {
 
   /// Scales every component. A [ComponentRef]'s recipe scales by the
   /// compound factor (ref factor times tree factor) in exactly one
-  /// [Recipe.scaledBy] pass: that pass applies ingredient rounding steps,
-  /// so scaling in two steps would round twice and snap eggs wrong.
+  /// [Recipe.scaledBy] pass: that pass applies ingredient rounding steps
+  /// and scaling exponents, so scaling in two steps would round twice
+  /// and compound an exponent twice.
   RecipeTree scaledBy(num factor) => RecipeTree(
         name: name,
         components: [
