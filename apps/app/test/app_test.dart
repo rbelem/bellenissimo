@@ -156,6 +156,13 @@ void main() {
     expect(find.text('Recipes'), findsOneWidget);
   });
 
+  testWidgets('cards build lazily on a real screen', (tester) async {
+    await tester.pumpWidget(const app.BellenissimosApp());
+    await tester.pumpAndSettle();
+    expect(find.text('Butter cookies'), findsOneWidget);
+    expect(find.text('Sandwich loaf'), findsNothing);
+  });
+
   group('recipe filter', () {
     testWidgets('narrows the box to matching names', (tester) async {
       await pumpApp(tester);

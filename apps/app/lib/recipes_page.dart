@@ -532,6 +532,9 @@ class _RecipesPageState extends State<RecipesPage> {
             child: TextField(
               key: const ValueKey('recipe-filter'),
               style: boxQuantity(context),
+              textInputAction: TextInputAction.search,
+              autocorrect: false,
+              enableSuggestions: false,
               decoration: const InputDecoration(
                 prefixIcon: Icon(Icons.search),
                 hintText: 'Find a recipe',
@@ -560,6 +563,7 @@ class _RecipesPageState extends State<RecipesPage> {
         padding: const EdgeInsets.fromLTRB(14, 16, 14, 32),
         itemCount: visible.length,
         itemBuilder: (context, index) => Padding(
+          key: ValueKey(visible[index].id),
           padding: EdgeInsets.only(
             bottom: index == visible.length - 1 ? 0 : 16,
           ),
