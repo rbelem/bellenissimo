@@ -23,14 +23,33 @@ void _checkParts({
   }
 }
 
+/// A named mix of ingredients standing in for a single-ingredient role.
+///
+/// [id] is stable identity for replacement walks; null means ad-hoc, and
+/// a null-id blend never matches a replacement walk.
+sealed class Blend {
+  const Blend();
+
+  String? get id;
+
+  String get name;
+
+  /// The blend composition, unmodifiable.
+  Map<Ingredient, double> get grams;
+
+  double get totalGrams => grams.values.fold(0.0, (sum, g) => sum + g);
+}
+
 /// A mix of sweeteners standing in for sugar.
 ///
 /// Sweetness values are relative to sucrose (sugar = 1.0, e.g.
 /// erythritol 0.7), so blends of high-intensity sweeteners can exceed 1.
-class SweetenerBlend {
+class SweetenerBlend extends Blend {
   factory SweetenerBlend({
+    required String name,
     required Map<Ingredient, double> grams,
     required Map<Ingredient, double> sweetnessPerGram,
+    String? id,
   }) {
     _checkParts(
       grams: grams,
@@ -38,22 +57,36 @@ class SweetenerBlend {
       className: 'SweetenerBlend',
     );
     return SweetenerBlend._(
-      Map.of(grams),
-      Map.of(sweetnessPerGram),
+      id: id,
+      name: name,
+      grams: Map.unmodifiable(grams),
+      sweetnessPerGram: Map.unmodifiable(sweetnessPerGram),
     );
   }
 
-  SweetenerBlend._(this._grams, this._sweetnessPerGram);
+  SweetenerBlend._({
+    required this.id,
+    required this.name,
+    required this.grams,
+    required this.sweetnessPerGram,
+  });
 
-  final Map<Ingredient, double> _grams;
-  final Map<Ingredient, double> _sweetnessPerGram;
+  @override
+  final String? id;
 
-  double get totalGrams => _grams.values.fold(0.0, (sum, g) => sum + g);
+  @override
+  final String name;
+
+  @override
+  final Map<Ingredient, double> grams;
+
+  /// Sweetness relative to sucrose per ingredient, unmodifiable.
+  final Map<Ingredient, double> sweetnessPerGram;
 
   double get sucroseEquivalentPerGram {
-    final sweetened = _grams.entries.fold(
+    final sweetened = grams.entries.fold(
       0.0,
-      (sum, entry) => sum + entry.value * _sweetnessPerGram[entry.key]!,
+      (sum, entry) => sum + entry.value * sweetnessPerGram[entry.key]!,
     );
     return sweetened / totalGrams;
   }
@@ -79,28 +112,47 @@ class SweetenerBlend {
 }
 
 /// A mix of flours with a blended protein content.
-class FlourMix {
+class FlourMix extends Blend {
   factory FlourMix({
+    required String name,
     required Map<Ingredient, double> grams,
     required Map<Ingredient, double> proteinPct,
+    String? id,
   }) {
     _checkParts(grams: grams, perGram: proteinPct, className: 'FlourMix');
-    return FlourMix._(Map.of(grams), Map.of(proteinPct));
+    return FlourMix._(
+      id: id,
+      name: name,
+      grams: Map.unmodifiable(grams),
+      proteinPcts: Map.unmodifiable(proteinPct),
+    );
   }
 
-  FlourMix._(this._grams, this._proteinPct);
+  FlourMix._({
+    required this.id,
+    required this.name,
+    required this.grams,
+    required this.proteinPcts,
+  });
 
-  final Map<Ingredient, double> _grams;
-  final Map<Ingredient, double> _proteinPct;
+  @override
+  final String? id;
 
-  double get totalGrams => _grams.values.fold(0.0, (sum, g) => sum + g);
+  @override
+  final String name;
+
+  @override
+  final Map<Ingredient, double> grams;
+
+  /// Protein percentage per ingredient, unmodifiable.
+  final Map<Ingredient, double> proteinPcts;
 
   /// Protein percentage averaged across the mix, weighted by grams.
   double get proteinPct {
     final total = totalGrams;
-    return _grams.entries.fold(
+    return grams.entries.fold(
       0.0,
-      (sum, entry) => sum + entry.value * _proteinPct[entry.key]! / total,
+      (sum, entry) => sum + entry.value * proteinPcts[entry.key]! / total,
     );
   }
 
