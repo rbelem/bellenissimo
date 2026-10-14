@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-13T15:00:00Z",
+  "generatedAt": "2026-10-14T00:00:00Z",
   "title": "Design System: bellenissimos",
   "extensions": {
     "colorMeta": {
@@ -258,6 +258,30 @@
       "description": "The card's scale control; accent only while scaled or dragged, with the red-underlined yield above.",
       "html": "<div class=\"ds-scale\"><p class=\"ds-yield-changed\">Makes 36 cookies</p><p class=\"ds-target\">Target: 36 cookies</p><div class=\"ds-slider-track hot\"><div class=\"ds-slider-fill hot\"></div><div class=\"ds-slider-knob hot\"></div></div></div>",
       "css": ".ds-scale { font-family: system-ui, sans-serif; } .ds-yield-changed { font-family: 'Courier Prime', monospace; font-weight: 700; font-size: 15.5px; color: #C03B2E; text-decoration: underline 2px #C03B2E; text-underline-offset: 3px; margin: 0 0 8px; } .ds-target { font-size: 11.5px; letter-spacing: 0.5px; color: #6E6252; margin: 0 0 6px; } .ds-slider-track { height: 4px; border-radius: 2px; background: #E2D8C4; position: relative; } .ds-slider-fill.hot { position: absolute; inset: 0 34% 0 0; background: #C03B2E; border-radius: 2px; } .ds-slider-knob.hot { position: absolute; left: 66%; top: 50%; transform: translate(-50%,-50%); width: 16px; height: 16px; border-radius: 50%; background: #C03B2E; }"
+    },
+    {
+      "name": "Blend Card",
+      "kind": "card",
+      "refersTo": "recipe-card",
+      "description": "Reference stock under the Caveat 'blends' divider: slab title, pencil date, Caveat kind line, ruled composition rows, Courier-700 total that never turns red, pencil readouts, and the replace-sugar field as the card's one working control. No slider, no target line \u2014 a blend is a ratio, not a batch.",
+      "html": "<div class=\"ds-recipe-card\"><h3 class=\"ds-card-title\">Erythritol xylitol</h3><p class=\"ds-card-date\">created 2026-03-01 \u00b7 updated 2026-03-02</p><p class=\"ds-kind\">sweetener blend</p><div class=\"ds-qrow\"><span>100 g erythritol</span></div><div class=\"ds-qrow\"><span>100 g xylitol</span></div><div class=\"ds-total\">Total 200 g</div><p class=\"ds-readout\">sweetness \u00d70.85 of sugar</p><p class=\"ds-bulk-note\">won't bulk like sugar \u2014 structure will shift</p><div class=\"ds-sugar-row\"><input class=\"ds-sugar-input\" placeholder=\"sugar g\"><span class=\"ds-sugar-result\">\u2192 118 g</span></div></div>",
+      "css": ".ds-kind { font-family: 'Caveat', cursive; font-size: 17px; color: #6E6252; margin: 4px 0 0; } .ds-total { font-family: 'Courier Prime', monospace; font-weight: 700; font-size: 15.5px; margin-top: 12px; } .ds-readout { font-family: 'Courier Prime', monospace; font-size: 12.5px; color: #6E6252; margin: 4px 0 0 4px; } .ds-bulk-note { font-family: 'Caveat', cursive; font-size: 14px; color: #6E6252; margin: 4px 0 0; } .ds-sugar-row { display: flex; gap: 8px; align-items: center; margin-top: 10px; } .ds-sugar-input { font-family: 'Courier Prime', monospace; font-size: 14.5px; flex: 1; border: none; border-bottom: 1px solid #6E6252; background: transparent; color: #2B2118; padding: 4px 2px; outline: none; } .ds-sugar-result { font-family: 'Courier Prime', monospace; font-size: 14.5px; color: #2B2118; }"
+    },
+    {
+      "name": "Blend Editor Sheet",
+      "kind": "input",
+      "refersTo": "editor-save",
+      "description": "The editor sheet with kind-fixed attribute rows (sweetness \u00d7 for sweeteners, protein % for flours), a seeded-and-overridable attribute prefill, the inline unit helper, and a live pencil readout that recomposes as rows fill.",
+      "html": "<div class=\"ds-editor-sheet\"><p class=\"ds-editor-title\">New sweetener blend</p><div class=\"ds-editor-row\"><input class=\"ds-editor-ingredient\" placeholder=\"Ingredient\"><input class=\"ds-editor-num\" placeholder=\"grams\"><input class=\"ds-editor-num\" placeholder=\"sweetness \u00d7\"><button class=\"ds-editor-remove\">\u2212</button></div><button class=\"ds-editor-add\">Add ingredient</button><p class=\"ds-editor-helper\">sugar is 1 \u00b7 erythritol \u2248 0.7 \u00b7 stevia \u2248 250</p><p class=\"ds-editor-readout\">sweetness \u00d70.85 of sugar \u00b7 replaces 100 g sugar with 118 g</p><button class=\"ds-editor-save\">Save blend</button></div>",
+      "css": ".ds-editor-sheet { background: #F7F2E9; color: #2B2118; border-radius: 4px 4px 0 0; padding: 16px 20px; font-family: system-ui, sans-serif; } .ds-editor-title { font-family: 'Zilla Slab', serif; font-weight: 600; font-size: 21px; margin: 0 0 12px; } .ds-editor-row { display: flex; gap: 8px; align-items: flex-end; margin-bottom: 8px; } .ds-editor-row input { font-family: 'Courier Prime', monospace; font-size: 14.5px; border: none; border-bottom: 1px solid #6E6252; background: transparent; color: #2B2118; padding: 4px 2px; min-width: 0; outline: none; } .ds-editor-ingredient { flex: 3; } .ds-editor-num { flex: 2; } .ds-editor-remove { background: none; border: none; color: #6E6252; font-size: 16px; } .ds-editor-add { background: none; border: none; color: #6E6252; font-size: 13.5px; padding: 4px 0; } .ds-editor-helper { font-size: 12px; color: #6E6252; margin: 4px 0; } .ds-editor-readout { font-family: 'Courier Prime', monospace; font-size: 12.5px; color: #6E6252; margin: 8px 0; } .ds-editor-save { background: #F7F2E9; color: #3E2F23; border: 1px solid #E2D8C4; border-radius: 4px; padding: 10px; width: 100%; font-size: 14.5px; }"
+    },
+    {
+      "name": "Attached Blend Row",
+      "kind": "row",
+      "refersTo": "quantity-row",
+      "description": "A recipe's attached blend renders as one ordinary ruled row \u2014 scaled grams in Courier with a pencil chevron \u2014 expanding in place to indented ink component rows, a pencil sugar-equivalence readout, and the weak-blend Caveat note when it applies.",
+      "html": "<div class=\"ds-attached\"><div class=\"ds-qrow ds-attached-row\"><span>120 g Erythritol xylitol</span><span class=\"ds-chevron\">\u25be</span></div><div class=\"ds-qrow ds-part-row\"><span>60 g erythritol</span></div><div class=\"ds-qrow ds-part-row\"><span>60 g xylitol</span></div><p class=\"ds-readout ds-part-readout\">sweetness of \u2248 102 g sugar</p></div>",
+      "css": ".ds-attached { font-family: system-ui, sans-serif; } .ds-attached-row { display: flex; justify-content: space-between; align-items: center; font-family: 'Courier Prime', monospace; font-size: 14.5px; color: #2B2118; } .ds-chevron { color: #6E6252; font-size: 20px; } .ds-part-row { padding-left: 16px; font-size: 13.5px; color: #2B2118; } .ds-part-readout { padding-left: 16px; }"
     }
   ],
   "narrative": {
@@ -297,14 +321,16 @@
       "Do set every quantity in Courier Prime with tabular alignment.",
       "Do render lineage (variant/parent relations) in Caveat pencil.",
       "Do let approximations stay visible: seeds are offered, never imposed.",
-      "Do honor Reduce Motion: instant swaps instead of rolls and fades."
+      "Do honor Reduce Motion: instant swaps instead of rolls and fades.",
+      "Do keep blend cards free of red \u2014 a weak sweetener blend is a pencil note, not an alarm."
     ],
     "donts": [
       "Don't ship food photography as layout structure \u2014 the box holds cards, not a photo feed.",
       "Don't introduce a second accent color; the system has red and it is scarce.",
       "Don't add dead controls (nav bars, FABs) before the features behind them exist.",
       "Don't put a kicker or eyebrow label above a heading.",
-      "Don't set recipe identity data (steps, dates, lineage) from a scaled recipe instance \u2014 those come from the raw card; only quantities scale."
+      "Don't set recipe identity data (steps, dates, lineage) from a scaled recipe instance \u2014 those come from the raw card; only quantities scale.",
+      "Don't give a blend card a scale slider or target line \u2014 a blend is a ratio, not a batch."
     ]
   }
 }

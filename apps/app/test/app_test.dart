@@ -315,7 +315,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('No recipes match'), findsOneWidget);
+      expect(find.textContaining('No cards match'), findsOneWidget);
       expect(find.text('Butter cookies'), findsNothing);
     });
 

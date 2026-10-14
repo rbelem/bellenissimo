@@ -63,6 +63,9 @@ components:
   quantity-row:
     backgroundColor: "transparent"
     textColor: "{colors.ink}"
+  blend-readout:
+    backgroundColor: "transparent"
+    textColor: "{colors.pencil}"
   fab:
     backgroundColor: "{colors.card-cream}"
     textColor: "{colors.walnut}"
@@ -190,6 +193,27 @@ Card corners 4px — nearly square, like real index cards. Row separators are 1p
 - **Controls:** shape dropdown, dimension + depth numeric fields (Courier)
 - **Readout:** pencil annotation — "pan factor ×1.44 · bake ≈ 16 min (base 12)" — recomputed live from `panScaleFactor` + `scaledBakingTime` against the 20 cm reference tin
 
+### Blend Card
+- **What:** a sweetener blend or flour mix — reference stock in the same box, filed after the recipes under one Caveat pencil divider ("blends")
+- **Shape:** same card as a recipe — 4px radius, card face, stacked-card shadow — with no slider and no target line: a blend is a ratio, not a batch
+- **Order inside:** title (slab) → date (label, pencil) → kind line (Caveat pencil — "sweetener blend" / "flour mix") → ruled composition rows → total line (Courier 700, never red) → derived readouts → replace-sugar field (sweetener cards only)
+- **Composition rows:** ruled quantity rows in Courier, grams (oz under the mass toggle); they do not scale, so they do not roll
+- **Readouts:** Courier 12.5 pencil — "sweetness ×0.85 of sugar"; "protein 11.2 %" and "bread hydration ≈ 64 %"
+- **Weak blend:** a blend under 0.8× sugar carries a penciled Caveat note — "won't bulk like sugar — structure will shift". It earns no red: weakness is a property of the card, not a state
+- **Replace-sugar field:** the blend card's one working control — Courier numeric input ("sugar g") with a live Courier result that rolls on change, computed by the engine's replaceSugar
+
+### Blend Editor Sheet
+- **Shape:** the editor sheet — bottom sheet, 4px top radius, card face, 88% height, pinned card-stock Save
+- **Kind:** chosen from the add sheet (Recipe / Sweetener blend / Flour mix) and fixed for the sheet's life
+- **Fields:** name (Courier), composition rows of ingredient + grams + attribute — sweetness × for sweeteners, protein % for flours; no unit dropdown (blends are gram ratios)
+- **Attributes:** prefilled from the seed table on a name match (sugar 1, erythritol 0.7, stevia 250; flour 10, bread 13, whole wheat 14), always overridable; unknowns default to the anchor (sweetness 1, protein 10)
+- **Readout:** the computed sweetness / protein / hydration line recomposes live in Courier pencil as rows fill — approximations stay visible at authoring time
+
+### Attached Blend Row
+- **Rule:** a recipe line that references a blend renders as one ordinary ruled row — "<scaled g> <blend name>" in Courier — with a pencil expand chevron; it scales with the slider like any line
+- **Expanded:** component rows indent 16px in ink Courier 13.5 with hairline rules, grams recomputed in one pass from the scaled line total; a sweetener blend adds a pencil "sweetness of ≈ N g sugar" line, and the weak-blend Caveat note when it applies
+- **Scope:** expansion is a view, never persisted; a deleted blend's rows render from the recipe's own copy of the blend, so nothing dangles
+
 ### Substitution Rows
 - **Trigger:** long-press a quantity row whose ingredient has a swap in the built-in seed-density table
 - **Result:** the row shows the replacement ingredient and amount, with the swap's note in Caveat underneath
@@ -203,7 +227,7 @@ Card corners 4px — nearly square, like real index cards. Row separators are 1p
 - **Where:** pinned under the lid rule, above the card stack; it does not scroll away
 - **Style:** single-line TextField in Courier, search icon prefix, hint "Find a recipe"
 - **Behavior:** case-insensitive substring match on the recipe name, applied as you type; the list below builds lazily so a box of a thousand cards stays smooth
-- **Empty state:** pencil annotation "No recipes match …" when nothing matches
+- **Empty state:** pencil annotation "No cards match …" when nothing matches (the box holds recipes and blends)
 
 ## Do's and Don'ts
 
@@ -214,6 +238,7 @@ Card corners 4px — nearly square, like real index cards. Row separators are 1p
 - **Do** let approximations stay visible: seeds are offered, never imposed.
 - **Do** honor Reduce Motion: instant swaps instead of rolls and fades.
 - **Do** pin primary actions (Save) outside scrollable content — always reachable.
+- **Do** keep blend cards free of red — a weak sweetener blend is a pencil note, not an alarm.
 
 ### Don't:
 - **Don't** ship food photography as layout structure — the box holds cards, not a photo feed.
@@ -221,3 +246,4 @@ Card corners 4px — nearly square, like real index cards. Row separators are 1p
 - **Don't** put a kicker or eyebrow label above a heading.
 - **Don't** set recipe identity data (steps, dates, lineage) from a scaled recipe instance — those come from the raw card; only quantities scale.
 - **Don't** persist a substitution into the source recipe; swaps are a view over the card.
+- **Don't** give a blend card a scale slider or target line — a blend is a ratio, not a batch.

@@ -419,7 +419,7 @@ class _RecipesPageState extends State<RecipesPage> {
                     ? Padding(
                         padding: const EdgeInsets.all(24),
                         child: Text(
-                          'No recipes match "${filter.trim()}"',
+                          'No cards match "${filter.trim()}"',
                           textAlign: TextAlign.center,
                           style: boxAnnotation(context),
                         ),
