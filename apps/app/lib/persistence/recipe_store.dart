@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:bellenissimos_core/core.dart';
 
+import '../export/box_io.dart';
 import 'recipe_codec.dart';
 
 /// JSON-file-backed recipe storage: one document, one list, written
@@ -35,17 +36,17 @@ class RecipeStore {
     }
     final decoded = jsonDecode(_file.readAsStringSync());
     _docs = [
-      for (final doc in (decoded as Map<String, Object?>)['recipes']!
-          as List<Object?>)
+      for (final doc
+          in (decoded as Map<String, Object?>)['recipes']! as List<Object?>)
         doc! as Map<String, Object?>,
     ];
   }
 
   void _flush() {
     final tmp = File('${_file.path}.tmp');
-    tmp.writeAsStringSync(const JsonEncoder.withIndent('  ').convert({
-      'recipes': _docs,
-    }));
+    tmp.writeAsStringSync(
+      const JsonEncoder.withIndent('  ').convert({'recipes': _docs}),
+    );
     tmp.renameSync(_file.path);
   }
 
@@ -105,5 +106,36 @@ class RecipeStore {
       candidate = '$slug-${n++}';
     }
     return candidate;
+  }
+
+  /// Serializes the whole box to one versioned JSON document.
+  String exportBox() => encodeBox(all());
+
+  /// Restores a box document produced by [exportBox]. In replace mode
+  /// the store is cleared first; in merge mode every incoming recipe
+  /// upserts by id. Rejected payloads leave the store untouched and
+  /// are reported as issues; importing never throws.
+  BoxImportResult importBox(String source, {required BoxImportMode mode}) {
+    final (recipes, issues) = parseBox(source);
+    if (recipes.isEmpty && issues.isNotEmpty) {
+      return BoxImportResult(0, issues);
+    }
+    _load();
+    final encoded = [for (final recipe in recipes) RecipeCodec.encode(recipe)];
+    switch (mode) {
+      case BoxImportMode.replace:
+        _docs = encoded;
+      case BoxImportMode.merge:
+        for (final doc in encoded) {
+          final index = _docs.indexWhere((d) => d['id'] == doc['id']);
+          if (index == -1) {
+            _docs.add(doc);
+          } else {
+            _docs[index] = doc;
+          }
+        }
+    }
+    _flush();
+    return BoxImportResult(recipes.length, issues);
   }
 }
