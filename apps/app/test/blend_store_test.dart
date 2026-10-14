@@ -290,7 +290,7 @@ void main() {
         'version': boxVersion,
         'blends': [
           good,
-          {'name': 'junk'},
+          {'name': 'junk', 'id': 'junk', 'kind': 'weird'},
         ],
         'recipes': [RecipeCodec.encode(seedRecipes.first)],
       });

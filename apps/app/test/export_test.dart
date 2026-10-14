@@ -194,6 +194,29 @@ void main() {
         'test-variant',
       ]);
     });
+    test('skips a blend entry without an id', () {
+      final target = RecipeStore.inMemory()..ensureSeeded(seedRecipes);
+      final targetBlends = BlendStore.inMemory(target);
+      final payload = jsonEncode({
+        'version': boxVersion,
+        'blends': [BlendCodec.encode(_honeyMix().blend)..remove('id')],
+        'recipes': [RecipeCodec.encode(_variant())],
+      });
+
+      final result = target.importBox(
+        payload,
+        mode: BoxImportMode.merge,
+        blends: targetBlends,
+      );
+
+      expect(result.imported, 1);
+      expect(result.blends, 0);
+      expect(
+        result.issues.single.toString(),
+        'Blend entry without an id skipped',
+      );
+      expect(targetBlends.all(), isEmpty);
+    });
   });
 
   group('importBox rejects bad payloads without touching the store', () {

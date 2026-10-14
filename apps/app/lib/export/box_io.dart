@@ -96,6 +96,10 @@ String encodeBox(List<Recipe> recipes, List<BlendRecord> blends) =>
           issues.add(const BoxIssue('Blend entry is not an object'));
           continue;
         }
+        if (doc['id'] == null) {
+          issues.add(const BoxIssue('Blend entry without an id skipped'));
+          continue;
+        }
         try {
           blends.add(BlendCodec.decode(doc as Map<String, Object?>));
         } catch (_) {
