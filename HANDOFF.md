@@ -96,7 +96,7 @@ devbox.json             dart, flutter, gtk3, cmake, ninja, clang, pkg-config + s
 
 ## Current state
 
-- 175 tests (core 152, app 23) · analyzer clean · 100% lcov core
+- 189 tests (core 152, app 37) · analyzer clean · 100% lcov core
 - Engine: units, conversions, seeds, yield scaling, rounding, pans, trees,
   layered cakes, replacements, blends, substitutions, JSON import (steps)
 - App: "The Recipe Box" world (DESIGN.md) over a sqlite-backed recipe
@@ -104,9 +104,10 @@ devbox.json             dart, flutter, gtk3, cmake, ninja, clang, pkg-config + s
   (create/edit/delete/variant), JSON-LD import, pan adaptation (factor +
   adjusted bake time), g<->oz toggle, row substitutions (butter->oil,
   sugar->honey, egg->applesauce); light+dark; rolling numerals;
-  focus-and-recede; VARIANT stamps; red reserved (stamp/changed/lid/
-  destructive); identity data renders from raw seeds, quantities from
-  scaledBy()
+  focus-and-recede; variants render as normal cards with a pencil
+  lineage note (no stamp); recipe filter (pinned name search, lazy card
+  list); red reserved (changed yield/lid/destructive); identity data
+  renders from raw seeds, quantities from scaledBy()
 - Design system: DESIGN.md + .impeccable/design.json (tokens); finish
   review shipped, evidence rasters in .impeccable/review/
 - Desktop window build verified; web server currently OFF

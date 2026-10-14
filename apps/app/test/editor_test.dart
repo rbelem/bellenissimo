@@ -180,7 +180,12 @@ void main() {
     await tester.scrollUntilVisible(
       find.byKey(const ValueKey('menu-sandwich-loaf')),
       160,
-      scrollable: find.byType(Scrollable).first,
+      scrollable: find
+          .descendant(
+            of: find.byType(ListView),
+            matching: find.byType(Scrollable),
+          )
+          .first,
     );
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('menu-sandwich-loaf')));

@@ -20,6 +20,9 @@ void main() {
   });
 
   Future<void> pumpApp(WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1170, 12000);
+    tester.view.devicePixelRatio = 3.0;
+    addTearDown(tester.view.reset);
     await tester.pumpWidget(const app.BellenissimosApp());
     await tester.pumpAndSettle();
   }
@@ -151,5 +154,59 @@ void main() {
     await tester.pump();
     await tester.pumpAndSettle();
     expect(find.text('Recipes'), findsOneWidget);
+  });
+
+  group('recipe filter', () {
+    testWidgets('narrows the box to matching names', (tester) async {
+      await pumpApp(tester);
+      await tester.enterText(
+        find.byKey(const ValueKey('recipe-filter')),
+        'loaf',
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Sandwich loaf'), findsOneWidget);
+      expect(find.text('Butter cookies'), findsNothing);
+      expect(find.text('Egg-free butter cookies'), findsNothing);
+    });
+
+    testWidgets('matches names case-insensitively', (tester) async {
+      await pumpApp(tester);
+      await tester.enterText(
+        find.byKey(const ValueKey('recipe-filter')),
+        'LOAF',
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Sandwich loaf'), findsOneWidget);
+      expect(find.text('Butter cookies'), findsNothing);
+    });
+
+    testWidgets('an empty filter restores every card', (tester) async {
+      await pumpApp(tester);
+      await tester.enterText(
+        find.byKey(const ValueKey('recipe-filter')),
+        'loaf',
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(const ValueKey('recipe-filter')), '');
+      await tester.pumpAndSettle();
+
+      expect(find.text('Butter cookies'), findsOneWidget);
+      expect(find.text('Egg-free butter cookies'), findsOneWidget);
+      expect(find.text('Sandwich loaf'), findsOneWidget);
+    });
+
+    testWidgets('an unmatched filter shows a note', (tester) async {
+      await pumpApp(tester);
+      await tester.enterText(
+        find.byKey(const ValueKey('recipe-filter')),
+        'zebra',
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('No recipes match'), findsOneWidget);
+      expect(find.text('Butter cookies'), findsNothing);
+    });
   });
 }
