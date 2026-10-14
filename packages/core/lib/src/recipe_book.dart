@@ -1,3 +1,4 @@
+import 'blend.dart';
 import 'recipe.dart';
 
 /// A named collection of recipes with identity-based lookups.
@@ -32,4 +33,11 @@ class RecipeBook {
         for (final recipe in recipes)
           if (recipe.parentId == parentId) recipe,
       ];
+
+  /// Returns a book where every blend line matching [blendId] points at
+  /// [replacement]; recipes that don't hold the blend are reused by
+  /// identity ([Recipe.replaceBlend]).
+  RecipeBook replacingBlend(String blendId, Blend replacement) => RecipeBook([
+        for (final recipe in recipes) recipe.replaceBlend(blendId, replacement),
+      ]);
 }

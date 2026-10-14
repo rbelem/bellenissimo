@@ -152,4 +152,19 @@ class Recipe {
         lines: [for (final line in lines) line.scaledBy(factor)],
         blends: [for (final line in blends) line.scaledBy(factor)],
       );
+
+  /// Returns a copy where every blend line whose blend has [blendId]
+  /// points at [replacement], keeping each line's attached grams — the
+  /// factors-preserved rule, at blend altitude. Returns this identically
+  /// when nothing matches, so callers can skip upserts via [identical];
+  /// a blend with a null id never matches.
+  Recipe replaceBlend(String blendId, Blend replacement) {
+    if (!blends.any((line) => line.blend.id == blendId)) return this;
+    return copyWith(
+      blends: [
+        for (final line in blends)
+          line.blend.id == blendId ? BlendLine(replacement, line.grams) : line,
+      ],
+    );
+  }
 }
