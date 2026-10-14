@@ -8,7 +8,7 @@
     "ninja@latest",
     "clang@latest",
     "pkg-config@latest",
-    "sqlite@latest"
+    "gdb@latest"
   ],
   "shell": {
     "init_hook": [

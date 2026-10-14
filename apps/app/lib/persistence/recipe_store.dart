@@ -1,121 +1,109 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:bellenissimos_core/core.dart';
-import 'package:sqlite3/sqlite3.dart';
 
 import 'recipe_codec.dart';
 
-/// A unique, slug-derived id for [name] within [store]'s recipes.
-String uniqueRecipeId(Database db, String name) {
-  var slug = name
-      .toLowerCase()
-      .replaceAll(RegExp('[^a-z0-9]+'), '-')
-      .replaceAll(RegExp(r'^-,+|-+$'), '');
-  if (slug.isEmpty) slug = 'recipe';
-  var candidate = slug;
-  var n = 2;
-  while (db.select('SELECT 1 FROM recipes WHERE id = ?', [candidate]).isNotEmpty) {
-    candidate = '$slug-${n++}';
-  }
-  return candidate;
-}
-
-/// SQLite-backed recipe storage. The whole recipe travels as one JSON
-/// document per row; columns exist only for identity, ordering, and
-/// lineage lookups.
+/// JSON-file-backed recipe storage: one document, one list, written
+/// atomically. Same lifecycle as a database would have — open, seed,
+/// upsert, delete — without a native dependency.
 class RecipeStore {
-  RecipeStore._(this._db);
+  RecipeStore._(this._file);
 
-  /// In-memory store for tests and as a fallback when no database file
-  /// can be opened.
+  /// Isolated store for tests: a fresh file in a throwaway directory.
   factory RecipeStore.inMemory() {
-    final store = RecipeStore._(sqlite3.openInMemory());
-    store._ensureSchema();
-    return store;
+    final dir = Directory.systemTemp.createTempSync('bellenissimos-');
+    return RecipeStore._(File('${dir.path}/recipes.json'));
   }
 
+  /// Store backed by [path] (a JSON file). Parent directories are
+  /// created on demand.
   factory RecipeStore.open(String path) {
-    final store = RecipeStore._(sqlite3.open(path));
-    store._ensureSchema();
-    return store;
+    final file = File(path);
+    file.parent.createSync(recursive: true);
+    return RecipeStore._(file);
   }
 
-  final Database _db;
+  final File _file;
+  List<Map<String, Object?>> _docs = [];
 
-  /// Direct handle for helpers that need raw queries.
-  Database get db => _db;
+  void _load() {
+    if (!_file.existsSync()) {
+      _docs = [];
+      return;
+    }
+    final decoded = jsonDecode(_file.readAsStringSync());
+    _docs = [
+      for (final doc in (decoded as Map<String, Object?>)['recipes']!
+          as List<Object?>)
+        doc! as Map<String, Object?>,
+    ];
+  }
 
-  void _ensureSchema() {
-    _db.execute('''
-      CREATE TABLE IF NOT EXISTS recipes (
-        id TEXT PRIMARY KEY,
-        parent_id TEXT,
-        position INTEGER NOT NULL,
-        doc TEXT NOT NULL
-      )
-    ''');
+  void _flush() {
+    final tmp = File('${_file.path}.tmp');
+    tmp.writeAsStringSync(const JsonEncoder.withIndent('  ').convert({
+      'recipes': _docs,
+    }));
+    tmp.renameSync(_file.path);
   }
 
   /// Inserts every seed recipe missing from the store. Existing rows —
   /// by id — are never touched, so user edits survive upgrades.
   void ensureSeeded(List<Recipe> seeds) {
-    final known = _db.select('SELECT id FROM recipes').map((r) => r['id']);
-    final knownIds = known.toSet();
-    var position = _nextPosition();
+    _load();
+    final known = _docs.map((doc) => doc['id']).toSet();
     for (final seed in seeds) {
-      if (knownIds.contains(seed.id)) continue;
-      _insert(seed, position);
-      position++;
+      if (known.contains(seed.id)) continue;
+      _docs.add(RecipeCodec.encode(seed));
     }
+    _flush();
   }
 
-  List<Recipe> all() => [
-    for (final row in _db.select(
-      'SELECT doc FROM recipes ORDER BY position',
-    ))
-      RecipeCodec.decodeDoc(row['doc']! as String),
-  ];
+  List<Recipe> all() {
+    _load();
+    return [for (final doc in _docs) RecipeCodec.decode(doc)];
+  }
 
   Recipe? byId(String id) {
-    final rows = _db.select(
-      'SELECT doc FROM recipes WHERE id = ?',
-      [id],
-    );
-    if (rows.isEmpty) return null;
-    return RecipeCodec.decodeDoc(rows.first['doc']! as String);
+    _load();
+    for (final doc in _docs) {
+      if (doc['id'] == id) return RecipeCodec.decode(doc);
+    }
+    return null;
   }
 
   void upsert(Recipe recipe) {
-    final existing = _db.select(
-      'SELECT position FROM recipes WHERE id = ?',
-      [recipe.id],
-    );
-    if (existing.isEmpty) {
-      _insert(recipe, _nextPosition());
+    _load();
+    final encoded = RecipeCodec.encode(recipe);
+    final index = _docs.indexWhere((doc) => doc['id'] == recipe.id);
+    if (index == -1) {
+      _docs.add(encoded);
     } else {
-      _db.execute(
-        'UPDATE recipes SET parent_id = ?, doc = ? WHERE id = ?',
-        [recipe.parentId, RecipeCodec.encodeDoc(recipe), recipe.id],
-      );
+      _docs[index] = encoded;
     }
+    _flush();
   }
 
   void delete(String id) {
-    _db.execute('DELETE FROM recipes WHERE id = ?', [id]);
+    _load();
+    _docs.removeWhere((doc) => doc['id'] == id);
+    _flush();
   }
 
-  void _insert(Recipe recipe, int position) {
-    _db.execute(
-      'INSERT INTO recipes (id, parent_id, position, doc) VALUES (?, ?, ?, ?)',
-      [
-        recipe.id,
-        recipe.parentId,
-        position,
-        RecipeCodec.encodeDoc(recipe),
-      ],
-    );
-  }
-
-  int _nextPosition() {
-    final rows = _db.select('SELECT COALESCE(MAX(position), -1) + 1 AS next FROM recipes');
-    return rows.first['next']! as int;
+  /// A unique, slug-derived id for [name] within this store.
+  String uniqueId(String name) {
+    var slug = name
+        .toLowerCase()
+        .replaceAll(RegExp('[^a-z0-9]+'), '-')
+        .replaceAll(RegExp(r'^-+|-+$'), '');
+    if (slug.isEmpty) slug = 'recipe';
+    var candidate = slug;
+    var n = 2;
+    while (byId(candidate) != null) {
+      candidate = '$slug-${n++}';
+    }
+    return candidate;
   }
 }

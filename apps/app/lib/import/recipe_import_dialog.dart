@@ -34,7 +34,7 @@ class _RecipeImportDialogState extends State<RecipeImportDialog> {
     }
     final imported = result.recipe!;
     final now = DateTime.now();
-    final id = uniqueRecipeId(widget.store.db, imported.name);
+    final id = widget.store.uniqueId(imported.name);
     final stored = Recipe(
       id: id,
       name: imported.name,

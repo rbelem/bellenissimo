@@ -4,7 +4,6 @@ import 'package:bellenissimos_app/seed_recipes.dart';
 import 'package:bellenissimos_core/core.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'sqlite_test_setup.dart';
 
 Recipe _variant() => butterCookies.copyWith(
       id: 'test-variant',
@@ -15,7 +14,6 @@ Recipe _variant() => butterCookies.copyWith(
     );
 
 void main() {
-  setUpAll(overrideSqliteForTests);
 
   group('RecipeCodec', () {
     test('roundtrips every recipe field', () {

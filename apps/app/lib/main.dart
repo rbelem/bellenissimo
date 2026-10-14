@@ -14,10 +14,12 @@ Future<void> main() async {
 Future<Widget> _buildApp() async {
   try {
     final dir = await getApplicationSupportDirectory();
-    final store = RecipeStore.open('${dir.path}/recipes.db');
+    final store = RecipeStore.open('${dir.path}/recipes.json');
     store.ensureSeeded(seedRecipes);
     return BellenissimosApp(store: store);
-  } on Exception {
+  } catch (_) {
+    // No usable storage on this machine: the box still opens, on a
+    // seeded in-memory store.
     return const BellenissimosApp();
   }
 }

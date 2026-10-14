@@ -2,7 +2,7 @@ import 'package:bellenissimos_core/core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../persistence/recipe_store.dart' show RecipeStore, uniqueRecipeId;
+import '../persistence/recipe_store.dart';
 import '../theme.dart';
 
 /// Bottom-sheet editor for creating, editing, and deriving recipes.
@@ -128,7 +128,7 @@ class _RecipeEditorState extends State<RecipeEditor> {
     );
   }
 
-  String _uniqueId(String name) => uniqueRecipeId(widget.store.db, name);
+  String _uniqueId(String name) => widget.store.uniqueId(name);
 
   Future<void> _save() async {
     final recipe = _buildRecipe();
