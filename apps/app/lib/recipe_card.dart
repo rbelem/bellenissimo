@@ -529,7 +529,7 @@ class RecipeCard extends StatelessWidget {
           child: Text(
             _blockLabel(block),
             key: ValueKey('$prefix-comp-$b-label'),
-            style: boxAnnotation(context, size: 16),
+            style: boxAnnotation(context),
           ),
         ),
       for (final row in rows)
