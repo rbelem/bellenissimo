@@ -12,6 +12,20 @@ YieldSpec yieldOf(Recipe recipe) => recipe.yield;
 
 Recipe? byId(RecipeStore store, String id) => store.byId(id);
 
+/// A recipe with a custom leavening line; keeps the [Recipe.yield]
+/// keyword out of async bodies.
+Recipe levainLoaf() => Recipe(
+  id: 'levain-loaf',
+  name: 'Levain loaf',
+  yield: YieldSpec(totalGrams: 900),
+  lines: [
+    RecipeLine(
+      const Ingredient('fresh_yeast', scalingExponent: 0.7),
+      const Quantity(20, Unit.g),
+    ),
+  ],
+);
+
 void main() {
   setUpAll(() {
     const channel = MethodChannel('plugins.flutter.io/path_provider');
@@ -329,5 +343,137 @@ void main() {
     expect(saved.lines.single.quantity.unit, Unit.ml);
     expect(saved.lines.single.quantity.amount, 300);
     expect(find.text('300 ml milk'), findsOneWidget);
+  });
+
+  group('custom ingredient scaling', () {
+    testWidgets('a custom ingredient gains an exponent field and saves it', (
+      tester,
+    ) async {
+      await pumpApp(tester);
+      await tester.tap(find.byKey(const ValueKey('add-recipe')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('add-choice-recipe')));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(
+        find.byKey(const ValueKey('editor-name')),
+        'Sourdough',
+      );
+      await tester.tap(find.text('grams'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const ValueKey('editor-yield-value')),
+        '900',
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('editor-line-ingredient-0')),
+        'fresh_yeast',
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const ValueKey('editor-line-amount-0')),
+        '20',
+      );
+      expect(
+        find.byKey(const ValueKey('editor-line-exponent-0')),
+        findsOneWidget,
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('editor-line-exponent-0')),
+        '0.7',
+      );
+      await tester.tap(find.byKey(const ValueKey('editor-save')));
+      await tester.pumpAndSettle();
+
+      final saved = byId(store, 'sourdough')!;
+      expect(saved.lines.single.ingredient.scalingExponent, 0.7);
+    });
+
+    testWidgets('an empty exponent saves a linear custom ingredient', (
+      tester,
+    ) async {
+      await pumpApp(tester);
+      await tester.tap(find.byKey(const ValueKey('add-recipe')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('add-choice-recipe')));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(
+        find.byKey(const ValueKey('editor-name')),
+        'Cocoa bar',
+      );
+      await tester.tap(find.text('grams'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const ValueKey('editor-yield-value')),
+        '200',
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('editor-line-ingredient-0')),
+        'cocoa_nibs',
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const ValueKey('editor-line-amount-0')),
+        '80',
+      );
+      expect(
+        find.byKey(const ValueKey('editor-line-exponent-0')),
+        findsOneWidget,
+      );
+      await tester.tap(find.byKey(const ValueKey('editor-save')));
+      await tester.pumpAndSettle();
+
+      final saved = byId(store, 'cocoa-bar')!;
+      expect(saved.lines.single.ingredient.scalingExponent, isNull);
+    });
+
+    testWidgets('a seed ingredient shows no exponent field', (tester) async {
+      await pumpApp(tester);
+      await tester.tap(find.byKey(const ValueKey('add-recipe')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('add-choice-recipe')));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(
+        find.byKey(const ValueKey('editor-line-ingredient-0')),
+        'flour',
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const ValueKey('editor-line-exponent-0')), findsNothing);
+    });
+
+    testWidgets('editing restores a saved custom exponent', (tester) async {
+      tester.view.physicalSize = const Size(1170, 12000);
+      tester.view.devicePixelRatio = 3.0;
+      addTearDown(tester.view.reset);
+      store = RecipeStore.inMemory()..ensureSeeded(seedRecipes);
+      store.upsert(levainLoaf());
+      await tester.pumpWidget(app.BellenissimosApp(store: store));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const ValueKey('menu-levain-loaf')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('menu-edit-levain-loaf')));
+      await tester.pumpAndSettle();
+
+      expect(
+        tester
+            .widget<TextField>(
+              find.byKey(const ValueKey('editor-line-exponent-0')),
+            )
+            .controller!
+            .text,
+        '0.7',
+      );
+      await tester.tap(find.byKey(const ValueKey('editor-save')));
+      await tester.pumpAndSettle();
+
+      expect(
+        byId(store, 'levain-loaf')!.lines.single.ingredient.scalingExponent,
+        0.7,
+      );
+    });
   });
 }

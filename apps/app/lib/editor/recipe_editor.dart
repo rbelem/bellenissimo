@@ -38,6 +38,7 @@ class _RecipeEditorState extends State<RecipeEditor> {
   late final List<TextEditingController> _amounts;
   late final List<TextEditingController> _ingredients;
   late final List<Unit> _units;
+  late final List<TextEditingController> _exponents;
   late final List<BlendLine> _blendLines;
   late final List<TextEditingController> _blendGrams;
   late bool _piecesMode;
@@ -65,6 +66,17 @@ class _RecipeEditorState extends State<RecipeEditor> {
         TextEditingController(text: line.ingredient.id),
     ];
     _units = [for (final line in initialLines) line.quantity.unit];
+    _exponents = [
+      for (final line in initialLines)
+        TextEditingController(
+          text: line.ingredient.scalingExponent == null
+              ? ''
+              : _formatAmount(line.ingredient.scalingExponent!),
+        ),
+    ];
+    for (final controller in _ingredients) {
+      controller.addListener(_rebuild);
+    }
     _blendLines = [...?source?.blends];
     _blendGrams = [
       for (final line in _blendLines)
@@ -88,6 +100,9 @@ class _RecipeEditorState extends State<RecipeEditor> {
     for (final c in [..._amounts, ..._ingredients, ..._blendGrams]) {
       c.dispose();
     }
+    for (final c in _exponents) {
+      c.dispose();
+    }
     super.dispose();
   }
 
@@ -99,11 +114,30 @@ class _RecipeEditorState extends State<RecipeEditor> {
   String _formatAmount(double amount) =>
       amount % 1 == 0 ? amount.round().toString() : '$amount';
 
+  void _rebuild() {
+    if (mounted) setState(() {});
+  }
+
   void _addLine() => setState(() {
-    _ingredients.add(TextEditingController());
+    _ingredients.add(TextEditingController()..addListener(_rebuild));
     _amounts.add(TextEditingController());
     _units.add(Unit.g);
+    _exponents.add(TextEditingController());
   });
+
+  /// A line whose ingredient is not a seed carries no scaling data of
+  /// its own, so the editor offers the exponent.
+  bool _isCustom(int index) {
+    final id = _ingredients[index].text.trim().toLowerCase();
+    return id.isNotEmpty && seedIngredients[id] == null;
+  }
+
+  bool get _hasCustomLine {
+    for (var i = 0; i < _ingredients.length; i++) {
+      if (_isCustom(i)) return true;
+    }
+    return false;
+  }
 
   Recipe? _buildRecipe() {
     final name = _name.text.trim();
@@ -114,11 +148,21 @@ class _RecipeEditorState extends State<RecipeEditor> {
       final amount = double.tryParse(_amounts[i].text.replaceAll(',', '.'));
       if (ingredientId.isEmpty || amount == null) return null;
       final seed = seedIngredients[ingredientId];
+      final Ingredient ingredient;
+      if (seed != null) {
+        ingredient = seed;
+      } else {
+        final exponentText = _exponents[i].text.trim();
+        final exponent = double.tryParse(
+          _exponents[i].text.replaceAll(',', '.'),
+        );
+        if (exponentText.isNotEmpty && (exponent == null || exponent <= 0)) {
+          return null;
+        }
+        ingredient = Ingredient(ingredientId, scalingExponent: exponent);
+      }
       lines.add(
-        RecipeLine(
-          seed ?? Ingredient(ingredientId),
-          Quantity(amount, _units[i]),
-        ),
+        RecipeLine(ingredient, Quantity(amount, _units[i])),
       );
     }
     if (lines.isEmpty) return null;
@@ -210,6 +254,7 @@ class _RecipeEditorState extends State<RecipeEditor> {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = Theme.of(context).extension<BoxTokens>()!;
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
       child: SizedBox(
@@ -285,72 +330,109 @@ class _RecipeEditorState extends State<RecipeEditor> {
                     for (var i = 0; i < _ingredients.length; i++)
                       Padding(
                         padding: const EdgeInsets.only(bottom: 8),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.end,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            Expanded(
-                              flex: 3,
-                              child: TextField(
-                                key: ValueKey('editor-line-ingredient-$i'),
-                                controller: _ingredients[i],
-                                style: boxQuantity(context),
-                                decoration: InputDecoration(
-                                  labelText: i == 0 ? 'Ingredient' : null,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              flex: 3,
-                              child: TextField(
-                                key: ValueKey('editor-line-amount-$i'),
-                                controller: _amounts[i],
-                                keyboardType:
-                                    const TextInputType.numberWithOptions(
-                                      decimal: true,
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Expanded(
+                                  flex: 3,
+                                  child: TextField(
+                                    key: ValueKey(
+                                      'editor-line-ingredient-$i',
                                     ),
-                                inputFormatters: [
-                                  FilteringTextInputFormatter.allow(
-                                    RegExp(r'[0-9.,]'),
+                                    controller: _ingredients[i],
+                                    style: boxQuantity(context),
+                                    decoration: InputDecoration(
+                                      labelText: i == 0 ? 'Ingredient' : null,
+                                    ),
                                   ),
-                                ],
-                                style: boxQuantity(context),
-                                decoration: const InputDecoration(
-                                  labelText: 'Amount',
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  flex: 3,
+                                  child: TextField(
+                                    key: ValueKey('editor-line-amount-$i'),
+                                    controller: _amounts[i],
+                                    keyboardType:
+                                        const TextInputType.numberWithOptions(
+                                          decimal: true,
+                                        ),
+                                    inputFormatters: [
+                                      FilteringTextInputFormatter.allow(
+                                        RegExp(r'[0-9.,]'),
+                                      ),
+                                    ],
+                                    style: boxQuantity(context),
+                                    decoration: const InputDecoration(
+                                      labelText: 'Amount',
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  flex: 2,
+                                  child: DropdownButtonFormField<Unit>(
+                                    key: ValueKey('editor-line-unit-$i'),
+                                    initialValue: _units[i],
+                                    isExpanded: true,
+                                    items: [
+                                      for (final unit in Unit.values)
+                                        DropdownMenuItem(
+                                          value: unit,
+                                          child: Text(unit.name),
+                                        ),
+                                    ],
+                                    onChanged: (unit) => setState(() {
+                                      _units[i] = unit!;
+                                    }),
+                                  ),
+                                ),
+                                IconButton(
+                                  key: ValueKey('editor-line-remove-$i'),
+                                  icon: const Icon(Icons.remove_circle_outline),
+                                  tooltip: 'Remove line',
+                                  onPressed: _ingredients.length > 1
+                                      ? () => setState(() {
+                                          _ingredients.removeAt(i);
+                                          _amounts.removeAt(i);
+                                          _units.removeAt(i);
+                                          _exponents.removeAt(i);
+                                        })
+                                      : null,
+                                ),
+                              ],
+                            ),
+                            if (_isCustom(i))
+                              Padding(
+                                padding: const EdgeInsets.only(top: 4),
+                                child: Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: SizedBox(
+                                    width: 120,
+                                    child: TextField(
+                                      key: ValueKey(
+                                        'editor-line-exponent-$i',
+                                      ),
+                                      controller: _exponents[i],
+                                      keyboardType:
+                                          const TextInputType.numberWithOptions(
+                                            decimal: true,
+                                          ),
+                                      inputFormatters: [
+                                        FilteringTextInputFormatter.allow(
+                                          RegExp(r'[0-9.,]'),
+                                        ),
+                                      ],
+                                      style: boxQuantity(context),
+                                      decoration: const InputDecoration(
+                                        labelText: 'scales ×',
+                                      ),
+                                    ),
+                                  ),
                                 ),
                               ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              flex: 2,
-                              child: DropdownButtonFormField<Unit>(
-                                key: ValueKey('editor-line-unit-$i'),
-                                initialValue: _units[i],
-                                isExpanded: true,
-                                items: [
-                                  for (final unit in Unit.values)
-                                    DropdownMenuItem(
-                                      value: unit,
-                                      child: Text(unit.name),
-                                    ),
-                                ],
-                                onChanged: (unit) => setState(() {
-                                  _units[i] = unit!;
-                                }),
-                              ),
-                            ),
-                            IconButton(
-                              key: ValueKey('editor-line-remove-$i'),
-                              icon: const Icon(Icons.remove_circle_outline),
-                              tooltip: 'Remove line',
-                              onPressed: _ingredients.length > 1
-                                  ? () => setState(() {
-                                      _ingredients.removeAt(i);
-                                      _amounts.removeAt(i);
-                                      _units.removeAt(i);
-                                    })
-                                  : null,
-                            ),
                           ],
                         ),
                       ),
@@ -360,6 +442,22 @@ class _RecipeEditorState extends State<RecipeEditor> {
                       icon: const Icon(Icons.add),
                       label: const Text('Add ingredient'),
                     ),
+                    if (_hasCustomLine)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4, bottom: 4),
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            'scales ×: 0.7 behaves like yeast · empty scales '
+                            'normally',
+                            key: const ValueKey('editor-exponent-hint'),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: tokens.pencil,
+                            ),
+                          ),
+                        ),
+                      ),
                     if (_libraryBlends.isNotEmpty) ...[
                       Align(
                         alignment: Alignment.centerLeft,

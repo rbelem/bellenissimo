@@ -179,6 +179,7 @@ Card corners 4px — nearly square, like real index cards. Row separators are 1p
 ### Editor Sheet
 - **Shape:** bottom sheet, 4px top radius, card face, 88% height
 - **Fields:** name (Courier input), pieces/grams SegmentedButton (selected = rule fill, onCard text), ingredient rows (name + amount + unit dropdown + remove), steps one-per-line
+- **Custom ingredient scaling:** a line whose ingredient is not a seed gains a "scales ×" field on a row of its own — Courier, optional; empty is linear, 0.7 behaves like yeast. The pencil hint shows only while a custom line exists
 - **Save:** pinned below the scroll view — always visible; card-stock button (onSurface fill, ground text)
 - **Primary actions are card stock.** The FAB and Save render in the surface color with ground-colored content — never red. Red stays reserved.
 
