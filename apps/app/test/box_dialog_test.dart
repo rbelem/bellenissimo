@@ -67,7 +67,7 @@ void main() {
     expect(files, hasLength(1));
     final doc = files.single.readAsStringSync();
     expect(doc, contains('Butter cookies'));
-    expect(doc, contains('"version": 2'));
+    expect(doc, contains('"version": 3'));
     expect(find.textContaining('Box exported'), findsOneWidget);
   });
 

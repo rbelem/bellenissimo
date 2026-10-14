@@ -6,8 +6,10 @@ import '../persistence/blend_codec.dart';
 import '../persistence/recipe_codec.dart';
 
 /// Version marker of the box document format. Bump on incompatible
-/// changes so old apps refuse newer files with a clear issue.
-const boxVersion = 2;
+/// changes so old apps refuse newer files with a clear issue. Version 3
+/// added compound trees; versions 1 and 2 stay readable and simply
+/// carry no trees.
+const boxVersion = 3;
 
 /// What import does with recipes already in the store.
 enum BoxImportMode {
@@ -77,7 +79,7 @@ String encodeBox(List<Recipe> recipes, List<BlendRecord> blends) =>
   if (version is! int) {
     return (const [], const [], [BoxIssue('Missing box version marker')]);
   }
-  if (version != 1 && version != boxVersion) {
+  if (version != 1 && version != 2 && version != boxVersion) {
     return (
       const [],
       const [],
@@ -125,17 +127,98 @@ String encodeBox(List<Recipe> recipes, List<BlendRecord> blends) =>
       [...issues, const BoxIssue('Box contains no recipes')],
     );
   }
+  final recipes = _parseRecipeEntries(rawRecipes, issues);
+  return (recipes, blends, issues);
+}
+
+/// Decodes every recipe entry. Top-level ids must be unique among
+/// entries, and an id claimed by a tree ref snapshot must carry the
+/// same recipe wherever it reappears — snapshots carry origin ids so
+/// store propagation can match them, and two different recipes sharing
+/// one origin id would make that walk ambiguous. The same recipe beside
+/// its own snapshot is the normal export shape, since a compound
+/// inlines its parts by value. The later conflicting entry is skipped
+/// with an issue; the first wins.
+List<Recipe> _parseRecipeEntries(
+  List<Object?> rawRecipes,
+  List<BoxIssue> issues,
+) {
   final recipes = <Recipe>[];
+  final topLevel = <String, String>{};
+  final snapshots = <String, String>{};
   for (final doc in rawRecipes) {
     if (doc is! Map) {
       issues.add(const BoxIssue('Recipe entry is not an object'));
       continue;
     }
+    final docMap = doc as Map<String, Object?>;
+    final id = docMap['id'] as String?;
+    if (id != null && topLevel.containsKey(id)) {
+      issues.add(BoxIssue('Duplicate recipe id "$id" skipped'));
+      continue;
+    }
     try {
-      recipes.add(RecipeCodec.decode(doc as Map<String, Object?>));
+      final recipe = RecipeCodec.decode(docMap);
+      final refs = _refDocs(recipe);
+      final canonical = _canonical(recipe);
+      final clash = _clashOf(refs, id, canonical, topLevel, snapshots);
+      if (clash != null) {
+        issues.add(BoxIssue('Duplicate recipe id "$clash" skipped'));
+        continue;
+      }
+      if (id != null) topLevel[id] = canonical;
+      for (final (refId, refDoc) in refs) {
+        if (refId != null) snapshots[refId] = refDoc;
+      }
+      recipes.add(recipe);
     } catch (_) {
-      issues.add(BoxIssue('Unreadable recipe entry "${doc['name']}" skipped'));
+      issues.add(
+        BoxIssue('Unreadable recipe entry "${docMap['name']}" skipped'),
+      );
     }
   }
-  return (recipes, blends, issues);
+  return recipes;
 }
+
+/// The id of the recipe that claims an id twice with different
+/// content, or null when [refs], [id] and the seen maps agree.
+String? _clashOf(
+  List<(String?, String)> refs,
+  String? id,
+  String canonical,
+  Map<String, String> topLevel,
+  Map<String, String> snapshots,
+) {
+  for (final (refId, refDoc) in refs) {
+    if (refId == null) continue;
+    final known = topLevel[refId] ?? snapshots[refId];
+    if (known != null && known != refDoc) return refId;
+  }
+  if (id == null) return null;
+  final own = snapshots[id];
+  if (own != null && own != canonical) return id;
+  return null;
+}
+
+/// Every tree ref as (origin id, canonical doc), nested compounds
+/// included; a ref without an id never matches and cannot collide.
+List<(String?, String)> _refDocs(Recipe recipe) {
+  final refs = <(String?, String)>[];
+  void walk(RecipeTree tree) {
+    for (final component in tree.components) {
+      if (component is! ComponentRef) continue;
+      refs.add((component.recipe.id, _canonical(component.recipe)));
+      final nested = component.recipe.tree;
+      if (nested != null) walk(nested);
+    }
+  }
+
+  final tree = recipe.tree;
+  if (tree != null) walk(tree);
+  return refs;
+}
+
+/// A key-order-stable fingerprint of a recipe doc, so snapshot and
+/// top-level copies of one recipe compare equal regardless of how the
+/// document was written.
+String _canonical(Recipe recipe) => jsonEncode(RecipeCodec.encode(recipe));

@@ -43,6 +43,47 @@ List<String> _ids(RecipeStore store) => [
 String _rawBox({Object? version = boxVersion, Object? recipes}) =>
     jsonEncode({'version': version, 'recipes': recipes});
 
+Recipe _batter() => Recipe(
+  id: 'batter',
+  name: 'Batter',
+  yield: const YieldSpec(count: 1),
+  lines: [
+    RecipeLine(const Ingredient('flour'), const Quantity(500, Unit.g)),
+  ],
+);
+
+Recipe _dashOfSalt() => Recipe(
+  name: 'Dash of salt',
+  yield: const YieldSpec(count: 1),
+  lines: [RecipeLine(const Ingredient('salt'), const Quantity(5, Unit.g))],
+);
+
+Recipe _tart() => Recipe.compound(
+  id: 'tart',
+  name: 'Tart',
+  yield: const YieldSpec(count: 1),
+  tree: RecipeTree(
+    name: 'tart shell',
+    components: [ComponentRef(_dashOfSalt(), factor: 1)],
+  ),
+);
+
+Recipe _compound() => Recipe.compound(
+  id: 'cake',
+  name: 'Cake',
+  yield: const YieldSpec(count: 1),
+  tree: RecipeTree(
+    name: 'assembled cake',
+    components: [
+      ComponentRef(_batter(), factor: 2),
+      ComponentRef(_tart(), factor: 1),
+      ComponentLeaf(
+        RecipeLine(const Ingredient('salt'), const Quantity(5, Unit.g)),
+      ),
+    ],
+  ),
+);
+
 void main() {
   group('exportBox', () {
     test('marks the document with the version and every recipe', () {
@@ -306,6 +347,230 @@ void main() {
       }
       expect(store.all(), hasLength(3));
       expect(blends.all(), hasLength(1));
+    });
+  });
+
+  group('version matrix', () {
+    late RecipeStore store;
+    late BlendStore blends;
+
+    setUp(() {
+      store = RecipeStore.inMemory();
+      blends = BlendStore.inMemory(store);
+    });
+
+    test('a version 1 doc loads', () {
+      final payload =
+          '{"version": 1, "recipes": [${jsonEncode(RecipeCodec.encode(_variant()))}, ${jsonEncode(RecipeCodec.encode(_dashOfSalt()))}]}';
+
+      final result = store.importBox(
+        payload,
+        mode: BoxImportMode.replace,
+        blends: blends,
+      );
+
+      expect(result.ok, isTrue);
+      expect(result.imported, 2);
+      expect(store.all().map((r) => r.name), [
+        'Test variant',
+        'Dash of salt',
+      ]);
+    });
+
+    test('a version 2 doc loads with no trees', () {
+      final payload = _rawBox(
+        version: 2,
+        recipes: [RecipeCodec.encode(_variant()), RecipeCodec.encode(_batter())],
+      );
+
+      final result = store.importBox(
+        payload,
+        mode: BoxImportMode.replace,
+        blends: blends,
+      );
+
+      expect(result.ok, isTrue);
+      expect(result.imported, 2);
+      expect(store.byId('test-variant')!.isCompound, isFalse);
+    });
+
+    test('a v3 box with compounds roundtrips through export and import', () {
+      final source = RecipeStore.inMemory();
+      source.upsert(_batter());
+      source.upsert(_compound());
+
+      final result = store.importBox(
+        source.exportBox(const []),
+        mode: BoxImportMode.replace,
+        blends: blends,
+      );
+
+      expect(result.ok, isTrue);
+      expect(result.imported, 2);
+      final restored = store.byId('cake')!;
+      expect(restored.isCompound, isTrue);
+      final components = restored.tree!.components;
+      final batter = components[0] as ComponentRef;
+      expect(batter.recipe.id, 'batter');
+      expect(batter.factor, 2);
+      expect(batter.recipe.lines.single.quantity.amount, 500);
+      final tart = components[1] as ComponentRef;
+      expect(tart.recipe.isCompound, isTrue);
+      expect(tart.recipe.tree!.name, 'tart shell');
+      final inner = tart.recipe.tree!.components.single as ComponentRef;
+      expect(inner.recipe.id, isNull);
+      expect(inner.recipe.lines.single.ingredient.id, 'salt');
+      final leaf = components[2] as ComponentLeaf;
+      expect(leaf.line.ingredient.id, 'salt');
+      expect(leaf.line.quantity.amount, 5);
+    });
+
+    test('a v3 payload merges compounds beside existing recipes', () {
+      final payloadSource = RecipeStore.inMemory();
+      payloadSource.upsert(_batter());
+      payloadSource.upsert(_compound());
+      store.ensureSeeded(seedRecipes);
+
+      final result = store.importBox(
+        payloadSource.exportBox(const []),
+        mode: BoxImportMode.merge,
+        blends: blends,
+      );
+
+      expect(result.ok, isTrue);
+      expect(result.imported, 2);
+      expect(_ids(store), [
+        'butter-cookies',
+        'egg-free-cookies',
+        'sandwich-loaf',
+        'batter',
+        'cake',
+      ]);
+      expect(store.byId('cake')!.isCompound, isTrue);
+    });
+
+    test('version 4 is refused with the existing issue text', () {
+      final result = store.importBox(
+        _rawBox(version: 4, recipes: [RecipeCodec.encode(_variant())]),
+        mode: BoxImportMode.replace,
+        blends: blends,
+      );
+
+      expect(result.imported, 0);
+      expect(result.issues.single.toString(), 'Unsupported box version: 4');
+      expect(store.all(), isEmpty);
+    });
+  });
+
+  group('compound corruption and id collisions', () {
+    test('a doc with both tree and lines becomes an issue, store untouched', () {
+      final store = RecipeStore.inMemory()..ensureSeeded(seedRecipes);
+      final blends = BlendStore.inMemory(store);
+      final doc = RecipeCodec.encode(_compound());
+      doc['lines'] = [
+        (RecipeCodec.encode(_batter())['lines']! as List<Object?>).first,
+      ];
+      final payload = _rawBox(recipes: [doc]);
+
+      final result = store.importBox(
+        payload,
+        mode: BoxImportMode.replace,
+        blends: blends,
+      );
+
+      expect(result.imported, 0);
+      expect(result.issues.single.toString(),
+          'Unreadable recipe entry "Cake" skipped');
+      expect(_ids(store), [
+        'butter-cookies',
+        'egg-free-cookies',
+        'sandwich-loaf',
+      ]);
+      expect(blends.all(), isEmpty);
+    });
+
+    test('a doc with both tree and blends becomes an issue', () {
+      final blend = SweetenerBlend(
+        name: 'mix',
+        grams: {const Ingredient('honey'): 60},
+        sweetnessPerGram: {const Ingredient('honey'): 1.1},
+      );
+      final doc = RecipeCodec.encode(_compound());
+      doc['blends'] = [BlendCodec.encodeLine(BlendLine(blend, 100))];
+
+      final (recipes, _, issues) = parseBox(_rawBox(recipes: [doc]));
+
+      expect(recipes, isEmpty);
+      expect(issues.single.toString(),
+          'Unreadable recipe entry "Cake" skipped');
+    });
+
+    test('a duplicate top-level id is skipped, first wins', () {
+      final payload = _rawBox(recipes: [
+        RecipeCodec.encode(_variant()),
+        RecipeCodec.encode(_variant().copyWith(name: 'Second variant')),
+      ]);
+
+      final (recipes, _, issues) = parseBox(payload);
+
+      expect(recipes, hasLength(1));
+      expect(recipes.single.name, 'Test variant');
+      expect(
+        issues.single.toString(),
+        'Duplicate recipe id "test-variant" skipped',
+      );
+    });
+
+    test('a ref snapshot colliding with a top-level id skips the later entry',
+        () {
+      final holder = Recipe.compound(
+        id: 'cake',
+        name: 'Cake',
+        yield: const YieldSpec(count: 1),
+        tree: RecipeTree(
+          name: 'assembled cake',
+          components: [ComponentRef(_variant(), factor: 2)],
+        ),
+      );
+      final payload = _rawBox(recipes: [
+        RecipeCodec.encode(holder),
+        RecipeCodec.encode(_variant().copyWith(name: 'Renamed variant')),
+      ]);
+
+      final (recipes, _, issues) = parseBox(payload);
+
+      expect(recipes.map((r) => r.id), ['cake']);
+      expect(
+        issues.single.toString(),
+        'Duplicate recipe id "test-variant" skipped',
+      );
+    });
+
+    test('a top-level id colliding with an earlier ref snapshot skips it', () {
+      final payload = _rawBox(recipes: [
+        RecipeCodec.encode(_compound()),
+        RecipeCodec.encode(_batter().copyWith(name: 'Whole-wheat batter')),
+      ]);
+
+      final (recipes, _, issues) = parseBox(payload);
+
+      expect(recipes.map((r) => r.id), ['cake']);
+      expect(
+        issues.single.toString(),
+        'Duplicate recipe id "batter" skipped',
+      );
+    });
+
+    test('a part beside its own unchanged snapshot imports both', () {
+      final payload = _rawBox(recipes: [
+        RecipeCodec.encode(_compound()),
+        RecipeCodec.encode(_batter()),
+      ]);
+
+      final (recipes, _, issues) = parseBox(payload);
+
+      expect(recipes.map((r) => r.id), ['cake', 'batter']);
+      expect(issues, isEmpty);
     });
   });
 }
