@@ -51,11 +51,14 @@ class RecipeTree {
         ],
       );
 
-  /// Scales every component. A [ComponentRef]'s recipe scales by the
-  /// compound factor (ref factor times tree factor) in exactly one
-  /// [Recipe.scaledBy] pass: that pass applies ingredient rounding steps
-  /// and scaling exponents, so scaling in two steps would round twice
-  /// and compound an exponent twice.
+  /// Scales every component. Leaf lines scale directly; a [ComponentRef]
+  /// keeps its recipe instance untouched and only accumulates the factor
+  /// (`refFactor * treeFactor`). A scaled compound derivative must keep
+  /// resolvable refs — replaceRecipe swaps preserve factors, and pre-scaled
+  /// snapshots would silently change the dish's magnitude on a swap — so
+  /// the effective quantity is `recipe.scaledBy(factor)`, realized in
+  /// exactly one pass (the single-rounding rule) at realization time,
+  /// never by chaining scaledBy.
   RecipeTree scaledBy(num factor) => RecipeTree(
         name: name,
         components: [
@@ -63,10 +66,7 @@ class RecipeTree {
             switch (component) {
               ComponentLeaf(:final line) => ComponentLeaf(line.scaledBy(factor)),
               ComponentRef(recipe: final recipe, factor: final refFactor) =>
-                ComponentRef(
-                  recipe.scaledBy(refFactor * factor),
-                  factor: refFactor * factor,
-                ),
+                ComponentRef(recipe, factor: refFactor * factor),
             },
         ],
       );

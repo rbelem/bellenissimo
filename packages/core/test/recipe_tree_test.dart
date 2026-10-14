@@ -40,7 +40,7 @@ void main() {
   );
 
   group('compound recipes', () {
-    test('scaling a pie scales the crust ref, its yield, and the leaf line', () {
+    test('scaling a pie accumulates the ref factor and scales the leaf line', () {
       final pie = RecipeTree(name: 'apple pie', components: [
         ComponentRef(crust, factor: 1.0),
         const ComponentLeaf(
@@ -53,11 +53,29 @@ void main() {
       expect(scaled.name, 'apple pie');
       final ref = scaled.components[0] as ComponentRef;
       expect(ref.factor, 0.5);
-      expect(ref.recipe.yield.totalGrams, 150);
-      expect(ref.recipe.lines[0].quantity.amount, 100);
-      expect(ref.recipe.lines[1].quantity.amount, 50);
+      expect(ref.recipe, same(crust));
+      final effective = ref.recipe.scaledBy(ref.factor);
+      expect(effective.yield.totalGrams, 150);
+      expect(effective.lines[0].quantity.amount, 100);
+      expect(effective.lines[1].quantity.amount, 50);
       final leaf = scaled.components[1] as ComponentLeaf;
       expect(leaf.line.quantity.amount, 200);
+    });
+
+    test('scaledBy keeps each ref recipe the same instance and multiplies the factor', () {
+      final tree = RecipeTree(name: 'torte', components: [
+        ComponentRef(crust, factor: 1.5),
+        const ComponentLeaf(
+          RecipeLine(Ingredient('apple', gramsPerMl: 0.6), Quantity(400, Unit.g)),
+        ),
+      ]);
+
+      final scaled = tree.scaledBy(2.0);
+
+      final ref = scaled.components[0] as ComponentRef;
+      expect(ref.recipe, same(crust));
+      expect(ref.factor, 3.0);
+      expect(crust.lines[0].quantity.amount, 200);
     });
 
     test('a ref ingredient with a rounding step rounds once, not twice', () {
@@ -69,7 +87,9 @@ void main() {
 
       final ref = scaled.components.single as ComponentRef;
       expect(ref.factor, 0.6);
-      expect(ref.recipe.lines[1].quantity.amount, 0.5);
+      expect(ref.recipe, same(sponge));
+      final effective = ref.recipe.scaledBy(ref.factor);
+      expect(effective.lines[1].quantity.amount, 0.5);
     });
 
     test('a sub-linear leavening exponent applies once with the compound factor', () {
@@ -91,7 +111,9 @@ void main() {
 
       final ref = scaled.components.single as ComponentRef;
       expect(ref.factor, 4.0);
-      expect(ref.recipe.lines.single.quantity.amount, closeTo(26.39, 0.01));
+      expect(ref.recipe, same(leavened));
+      final effective = ref.recipe.scaledBy(ref.factor);
+      expect(effective.lines.single.quantity.amount, closeTo(26.39, 0.01));
     });
   });
 
