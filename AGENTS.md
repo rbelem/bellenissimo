@@ -69,5 +69,8 @@ and tests on every push and PR.
   the visible cards of the lazy `ListView`. Set `tester.view` for whole-box
   counts, and scope Scrollable finds to the ListView, or the filter field's
   internal Scrollable matches first.
+- `testWidgets` runs the body under FakeAsync: real async I/O (createTemp,
+  plugin futures, network) never completes and the test hangs. Use the
+  `*Sync` variants or inject fakes through a constructor parameter.
 - GDK/Pango "font file not found" warnings in the desktop app are cosmetic
   (GTK decorations only); Flutter content uses bundled fonts.
