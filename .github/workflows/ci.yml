@@ -15,7 +15,9 @@ jobs:
         working-directory: packages/core
       - run: dart analyze
         working-directory: packages/core
-      - run: dart test
+      - run: dart test --coverage=coverage && dart run coverage:format_coverage --lcov --in=coverage --out=coverage/lcov.info --report-on=lib
+        working-directory: packages/core
+      - run: "! grep -q '^DA.*,0$' coverage/lcov.info"
         working-directory: packages/core
 
   app:
@@ -30,5 +32,7 @@ jobs:
         working-directory: apps/app
       - run: flutter analyze
         working-directory: apps/app
-      - run: flutter test
+      - run: flutter test --coverage
+        working-directory: apps/app
+      - run: "! grep -q '^DA.*,0$' coverage/lcov.info"
         working-directory: apps/app

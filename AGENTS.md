@@ -50,6 +50,16 @@ and tests on every push and PR.
 - No comments except non-obvious domain whys.
 - Conventional Commits.
 
+## Parallel lanes
+
+- Fan out with cow worktrees (`spawn_workspace`), one writer per worktree,
+  disjoint file ownership.
+- A session that finds a git tip it did not create stands down and reports;
+  it never writes over a foreign commit.
+- Lanes commit in small Conventional Commits, push only their own `feat-*`
+  branch, and run every gate before push. The integrator merges one lane at
+  a time and re-runs the gates after each merge.
+
 ## Gotchas (paid for already — don't relearn)
 
 - App->core path dep is `../../packages/core`. `../packages/core` resolves
@@ -72,5 +82,8 @@ and tests on every push and PR.
 - `testWidgets` runs the body under FakeAsync: real async I/O (createTemp,
   plugin futures, network) never completes and the test hangs. Use the
   `*Sync` variants or inject fakes through a constructor parameter.
+- Never pipe a gate through `tail` inside an `&&` chain: the chain sees
+  tail's exit status, not the gate's, and a red run reads as green. Capture
+  to a file, or run the gate bare and read its output after.
 - GDK/Pango "font file not found" warnings in the desktop app are cosmetic
   (GTK decorations only); Flutter content uses bundled fonts.
