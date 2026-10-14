@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'editor/recipe_editor.dart';
 import 'export/box_dialog.dart';
 import 'import/recipe_import_dialog.dart';
+import 'blend_card.dart';
+import 'persistence/blend_codec.dart';
 import 'persistence/blend_store.dart';
 import 'persistence/recipe_store.dart';
 import 'recipe_card.dart';
@@ -31,6 +33,7 @@ class _RecipesPageState extends State<RecipesPage> {
   late final BlendStore _blendStore;
   late List<Recipe> _recipes;
   late RecipeBook _book;
+  List<BlendRecord> _blendRecords = [];
   final Map<String, double> _targets = {};
   final Map<String, PanDraft> _pans = {};
   final Map<String, Map<String, Substitution>> _subs = {};
@@ -38,17 +41,32 @@ class _RecipesPageState extends State<RecipesPage> {
   String? _activeScale;
   final ValueNotifier<String> _filter = ValueNotifier('');
 
-  List<Recipe> _visibleRecipes(String filter) {
+  /// Sentinel marking where the blend section starts in the card list.
+  final Object _blendsDivider = Object();
+
+  List<Object> _visibleCards(String filter) {
     final query = filter.trim().toLowerCase();
-    if (query.isEmpty) return _recipes;
-    return [
-      for (final recipe in _recipes)
-        if (recipe.name.toLowerCase().contains(query) ||
-            recipe.lines.any(
-              (line) => line.ingredient.id.toLowerCase().contains(query),
-            ))
-          recipe,
-    ];
+    var recipes = _recipes;
+    var blends = _blendRecords;
+    if (query.isNotEmpty) {
+      recipes = [
+        for (final recipe in recipes)
+          if (recipe.name.toLowerCase().contains(query) ||
+              recipe.lines.any(
+                (line) => line.ingredient.id.toLowerCase().contains(query),
+              ))
+            recipe,
+      ];
+      blends = [
+        for (final record in blends)
+          if (record.blend.name.toLowerCase().contains(query) ||
+              record.blend.grams.keys.any(
+                (ingredient) => ingredient.id.toLowerCase().contains(query),
+              ))
+            record,
+      ];
+    }
+    return [...recipes, if (blends.isNotEmpty) _blendsDivider, ...blends];
   }
 
   @override
@@ -68,6 +86,7 @@ class _RecipesPageState extends State<RecipesPage> {
   void _reload() {
     _recipes = _store.all();
     _book = RecipeBook(_recipes);
+    _blendRecords = _blendStore.all();
     for (final recipe in _recipes) {
       final base = recipe.yield.count ?? recipe.yield.totalGrams;
       if (base != null) _targets.putIfAbsent(recipe.id!, () => base);
@@ -257,7 +276,7 @@ class _RecipesPageState extends State<RecipesPage> {
             child: ValueListenableBuilder<String>(
               valueListenable: _filter,
               builder: (context, filter, _) {
-                final visible = _visibleRecipes(filter);
+                final visible = _visibleCards(filter);
                 return visible.isEmpty
                     ? Padding(
                         padding: const EdgeInsets.all(24),
@@ -267,7 +286,7 @@ class _RecipesPageState extends State<RecipesPage> {
                           style: boxAnnotation(context),
                         ),
                       )
-                    : _recipeList(visible);
+                    : _cardList(visible);
               },
             ),
           ),
@@ -276,14 +295,36 @@ class _RecipesPageState extends State<RecipesPage> {
     );
   }
 
-  Widget _recipeList(List<Recipe> visible) => ListView.builder(
+  Widget _cardList(List<Object> visible) => ListView.builder(
     padding: const EdgeInsets.fromLTRB(14, 16, 14, 32),
     itemCount: visible.length,
-    itemBuilder: (context, index) => Padding(
-      key: ValueKey(visible[index].id),
-      padding: EdgeInsets.only(bottom: index == visible.length - 1 ? 0 : 16),
-      child: _recipeCard(visible[index]),
-    ),
+    itemBuilder: (context, index) {
+      final item = visible[index];
+      return Padding(
+        key: switch (item) {
+          Recipe() => ValueKey(item.id),
+          BlendRecord() => ValueKey('blend-${item.blend.id}'),
+          _ => const ValueKey('blends-divider'),
+        },
+        padding: EdgeInsets.only(bottom: index == visible.length - 1 ? 0 : 16),
+        child: switch (item) {
+          Recipe() => _recipeCard(item),
+          BlendRecord() => BlendCard(
+            record: item,
+            massUnit: _massUnit,
+            activeScale: _activeScale,
+          ),
+          _ => Padding(
+            padding: const EdgeInsets.only(left: 4),
+            child: Text(
+              'blends',
+              key: const ValueKey('blends-divider-text'),
+              style: boxAnnotation(context),
+            ),
+          ),
+        },
+      );
+    },
   );
 
   Widget _recipeCard(Recipe raw) {

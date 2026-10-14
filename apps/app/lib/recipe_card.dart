@@ -1,6 +1,7 @@
 import 'package:bellenissimos_core/core.dart';
 import 'package:flutter/material.dart';
 
+import 'rolling.dart';
 import 'theme.dart';
 
 /// Display unit for mass quantities.
@@ -28,10 +29,10 @@ class PanDraft {
       PanShape.round => Pan.round(d1, depth),
       PanShape.square => Pan.square(d1, depth),
       PanShape.rectangular => Pan.rectangular(
-          d1,
-          double.tryParse(dim2) ?? d1,
-          depth,
-        ),
+        d1,
+        double.tryParse(dim2) ?? d1,
+        depth,
+      ),
     };
   }
 }
@@ -92,17 +93,30 @@ Duration? _baseBakeTime(Recipe recipe) {
 }
 
 /// "created yyyy-mm-dd · updated yyyy-mm-dd", or null when undated.
-String? timestampLine(Recipe recipe) {
-  final created = recipe.createdAt;
-  final updated = recipe.updatedAt;
+String? dateLine(DateTime? created, DateTime? updated) {
   if (created == null || updated == null) return null;
   return 'created ${_ymd(created)} · updated ${_ymd(updated)}';
 }
+
+String? timestampLine(Recipe recipe) =>
+    dateLine(recipe.createdAt, recipe.updatedAt);
 
 String _ymd(DateTime date) =>
     '${date.year}-${_two(date.month)}-${_two(date.day)}';
 
 String _two(int value) => value.toString().padLeft(2, '0');
+
+/// A quantity in the card's display unit: ounces with one decimal under
+/// the mass toggle, grams otherwise.
+String quantityText(Quantity quantity) {
+  if (quantity.unit == Unit.oz && quantity.amount % 1 != 0) {
+    return '${quantity.amount.toStringAsFixed(1)} oz';
+  }
+  if (quantity.unit == Unit.g && quantity.amount % 1 != 0) {
+    return '${quantity.amount.round()} g';
+  }
+  return '$quantity';
+}
 
 /// One recipe card: scaled lines, yield, target, scale slider, pan
 /// adaptation and steps. All mutable state lives in the page; the card
@@ -154,8 +168,9 @@ class RecipeCard extends StatelessWidget {
     final scaleHi = base * 2;
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
     return AnimatedOpacity(
-      duration:
-          reduceMotion ? Duration.zero : const Duration(milliseconds: 200),
+      duration: reduceMotion
+          ? Duration.zero
+          : const Duration(milliseconds: 200),
       opacity: activeScale == null || activeScale == prefix ? 1 : 0.55,
       child: DecoratedBox(
         decoration: BoxDecoration(
@@ -212,7 +227,7 @@ class RecipeCard extends StatelessWidget {
               ..._lines(context, scaled, prefix),
               Padding(
                 padding: const EdgeInsets.only(top: 12),
-                child: _rolling(
+                child: rollIn(
                   context,
                   _yieldText(scaled, raw),
                   Text(
@@ -232,7 +247,7 @@ class RecipeCard extends StatelessWidget {
               ),
               Padding(
                 padding: const EdgeInsets.only(top: 10, bottom: 2),
-                child: _rolling(
+                child: rollIn(
                   context,
                   _targetText(raw, target),
                   Text(
@@ -248,10 +263,9 @@ class RecipeCard extends StatelessWidget {
               ),
               SliderTheme(
                 data: SliderTheme.of(context).copyWith(
-                  activeTrackColor:
-                      isScaled || activeScale == prefix
-                          ? tokens.accent
-                          : tokens.rule,
+                  activeTrackColor: isScaled || activeScale == prefix
+                      ? tokens.accent
+                      : tokens.rule,
                   thumbColor: isScaled || activeScale == prefix
                       ? tokens.accent
                       : tokens.pencil,
@@ -304,10 +318,7 @@ class RecipeCard extends StatelessWidget {
     if (parentId != null) {
       final parent = book.byId(parentId);
       if (parent != null) {
-        yield Text(
-          'variant of ${parent.name}',
-          style: boxAnnotation(context),
-        );
+        yield Text('variant of ${parent.name}', style: boxAnnotation(context));
       }
     }
     final id = recipe.id;
@@ -320,40 +331,20 @@ class RecipeCard extends StatelessWidget {
     );
   }
 
-  /// In-place roll: when the text changes, the old figure slides up and away
-  /// while the new one slides in from below — never a jump-cut. Under Reduce
-  /// Motion the swap is an instant cut.
-  Widget _rolling(BuildContext context, String text, Widget child) {
-    if (MediaQuery.disableAnimationsOf(context)) {
-      return KeyedSubtree(key: ValueKey(text), child: child);
-    }
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 180),
-      switchInCurve: Curves.easeOutExpo,
-      switchOutCurve: Curves.easeInCubic,
-      transitionBuilder: (child, animation) => FadeTransition(
-        opacity: animation,
-        child: SlideTransition(
-          position: Tween(
-            begin: const Offset(0, 0.35),
-            end: Offset.zero,
-          ).animate(animation),
-          child: child,
-        ),
-      ),
-      child: KeyedSubtree(key: ValueKey(text), child: child),
-    );
-  }
-
   List<Widget> _lines(BuildContext context, Recipe recipe, String prefix) => [
     for (final line in recipe.lines)
-      _rolling(context, '${_displayQuantity(line)} ${line.ingredient.id}',
-          _lineTile(context, line, prefix)),
+      rollIn(
+        context,
+        '${_displayQuantity(line)} ${line.ingredient.id}',
+        _lineTile(context, line, prefix),
+      ),
   ];
 
   Quantity _displayQuantity(RecipeLine line) {
     final sub = subs[line.ingredient.id];
-    final effective = sub == null ? line : applySubstitution(line, [sub])?.line ?? line;
+    final effective = sub == null
+        ? line
+        : applySubstitution(line, [sub])?.line ?? line;
     var quantity = effective.quantity;
     if (massUnit == MassUnit.oz && quantity.unit.kind == UnitKind.mass) {
       quantity = quantity.convertTo(Unit.oz);
@@ -361,47 +352,39 @@ class RecipeCard extends StatelessWidget {
     return quantity;
   }
 
-  String _quantityText(Quantity quantity) {
-    if (quantity.unit == Unit.oz && quantity.amount % 1 != 0) {
-      return '${quantity.amount.toStringAsFixed(1)} oz';
-    }
-    if (quantity.unit == Unit.g && quantity.amount % 1 != 0) {
-      return '${quantity.amount.round()} g';
-    }
-    return '$quantity';
-  }
-
   Widget _lineTile(BuildContext context, RecipeLine line, String prefix) {
     final sub = subs[line.ingredient.id];
-    final effective = sub == null ? line : applySubstitution(line, [sub])?.line ?? line;
+    final effective = sub == null
+        ? line
+        : applySubstitution(line, [sub])?.line ?? line;
     return Container(
       decoration: BoxDecoration(
         border: Border(
-          bottom: BorderSide(color: Theme.of(context).extension<BoxTokens>()!.rule),
+          bottom: BorderSide(
+            color: Theme.of(context).extension<BoxTokens>()!.rule,
+          ),
         ),
       ),
       child: Material(
         type: MaterialType.transparency,
         child: ListTile(
-        key: ValueKey('$prefix-line-${line.ingredient.id}'),
-        dense: true,
-        visualDensity: VisualDensity.compact,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-        onLongPress: sub == null &&
-                (substitutionTable[line.ingredient.id]?.isNotEmpty ?? false)
-            ? () => onSubstitute(line)
-            : null,
-        title: Text(
-          '${_quantityText(_displayQuantity(line))} ${effective.ingredient.id}',
-          style: boxQuantity(context),
+          key: ValueKey('$prefix-line-${line.ingredient.id}'),
+          dense: true,
+          visualDensity: VisualDensity.compact,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+          onLongPress:
+              sub == null &&
+                  (substitutionTable[line.ingredient.id]?.isNotEmpty ?? false)
+              ? () => onSubstitute(line)
+              : null,
+          title: Text(
+            '${quantityText(_displayQuantity(line))} ${effective.ingredient.id}',
+            style: boxQuantity(context),
+          ),
+          subtitle: sub != null && sub.note != null
+              ? Text(sub.note!, style: boxAnnotation(context, size: 14))
+              : null,
         ),
-        subtitle: sub != null && sub.note != null
-            ? Text(
-                sub.note!,
-                style: boxAnnotation(context, size: 14),
-              )
-            : null,
-      ),
       ),
     );
   }
@@ -442,9 +425,10 @@ class RecipeCard extends StatelessWidget {
     final tokens = Theme.of(context).extension<BoxTokens>()!;
     final draft = panDraft;
     final targetPan = draft.build();
-    final factor = targetPan == null ? null : panScaleFactor(_referencePan, targetPan);
-    final bake =
-        factor == null ? null : scaledBakingTime(baseBake, factor);
+    final factor = targetPan == null
+        ? null
+        : panScaleFactor(_referencePan, targetPan);
+    final bake = factor == null ? null : scaledBakingTime(baseBake, factor);
     final dimLabel = switch (draft.shape) {
       PanShape.round => 'diameter cm',
       PanShape.square => 'side cm',
