@@ -148,13 +148,8 @@ class _RecipesPageState extends State<RecipesPage> {
       case 'flour':
         await _editBlend(null, BlendKind.flour);
       case 'compound':
-        await _addCompound();
+        await _openCompoundEditor();
     }
-  }
-
-  Future<void> _addCompound() async {
-    final saved = await showCompoundEditor(context, _store);
-    if (saved != null) setState(_reload);
   }
 
   Future<void> _editBlend(BlendRecord? record, BlendKind kind) async {
@@ -248,17 +243,19 @@ class _RecipesPageState extends State<RecipesPage> {
   }
 
   Future<void> _editRecipe(Recipe raw) async {
-    if (raw.isCompound) {
-      final saved = await showCompoundEditor(context, _store, recipe: raw);
-      if (saved != null) setState(_reload);
-      return;
-    }
+    if (raw.isCompound) return _openCompoundEditor(raw);
     final saved = await showRecipeEditor(
       context,
       _store,
       blends: _blendStore,
       recipe: raw,
     );
+    if (saved != null) setState(_reload);
+  }
+
+  /// Creation and editing share one path: a null recipe creates.
+  Future<void> _openCompoundEditor([Recipe? recipe]) async {
+    final saved = await showCompoundEditor(context, _store, recipe: recipe);
     if (saved != null) setState(_reload);
   }
 
