@@ -205,7 +205,7 @@ Card corners 4px — nearly square, like real index cards. Row separators are 1p
 
 ### Blend Editor Sheet
 - **Shape:** the editor sheet — bottom sheet, 4px top radius, card face, 88% height, pinned card-stock Save
-- **Kind:** chosen from the add sheet (Recipe / Sweetener blend / Flour mix) and fixed for the sheet's life
+- **Kind:** chosen from the add sheet (Recipe / Sweetener blend / Flour mix / Compound dish) and fixed for the sheet's life
 - **Fields:** name (Courier), composition rows of ingredient + grams + attribute — sweetness × for sweeteners, protein % for flours; no unit dropdown (blends are gram ratios)
 - **Attributes:** prefilled from the seed table on a name match (sugar 1, erythritol 0.7, stevia 250; flour 10, bread 13, whole wheat 14), always overridable; unknowns default to the anchor (sweetness 1, protein 10)
 - **Readout:** the computed sweetness / protein / hydration line recomposes live in Courier pencil as rows fill — approximations stay visible at authoring time
@@ -214,6 +214,23 @@ Card corners 4px — nearly square, like real index cards. Row separators are 1p
 - **Rule:** a recipe line that references a blend renders as one ordinary ruled row — "<scaled g> <blend name>" in Courier — with a pencil expand chevron; it scales with the slider like any line
 - **Expanded:** component rows indent 16px in ink Courier 13.5 with hairline rules, grams recomputed in one pass from the scaled line total; a sweetener blend adds a pencil "sweetness of ≈ N g sugar" line, and the weak-blend Caveat note when it applies
 - **Scope:** expansion is a view, never persisted; a deleted blend's rows render from the recipe's own copy of the blend, so nothing dangles
+
+### Compound Card
+- **What:** a dish assembled from parts — a layered cake of two batters, fillings, a topping — filed among the recipe cards, under no divider: a compound is a recipe that yields
+- **Shape:** the recipe card — 4px radius, card face, stacked-card shadow, scale slider, target line; a compound scales like any recipe, in one pass
+- **Order inside:** title (slab) → date (label, pencil) → lineage (Caveat) → part blocks in assembly order → total line (Courier 700) → yield line → target label + slider → numbered steps
+- **Part block:** a Caveat pencil part label carrying the part recipe's name ("batter A"), followed by that part's ruled Courier lines; consecutive references to the same recipe collapse into one counted block ("sponge × 3"); a part factor other than ×1 shows in pencil beside the label ("× 0.75")
+- **Component lines:** ruled quantity rows in Courier that roll on scale like any row; bare ingredient parts render as ordinary lines inside their block
+- **Total line:** the dish summed in grams, never red — size is a property, not a change
+- **Rule:** a compound renders from its own tree snapshot; a deleted part recipe's rows render from the card's copy, so nothing dangles
+
+### Compound Editor Sheet
+- **Shape:** the editor sheet — bottom sheet, 4px top radius, card face, 88% height, pinned card-stock Save
+- **Kind:** chosen from the add sheet (Recipe / Sweetener blend / Flour mix / Compound dish) and fixed for the sheet's life
+- **Fields:** name (Courier input), a makes-N count field, then component rows in assembly order — a part row is a recipe picker + a Courier "×" factor field (empty is ×1) + remove; an ingredient row reuses the recipe line editor fields (name + amount + unit + remove)
+- **Add controls:** two pencil buttons — "Add part from recipes" and "Add ingredient line"
+- **Readout:** a live Courier pencil line under the rows — "4 parts · ≈ 1.9 kg" — recomputing as rows and factors change; approximations stay visible at authoring time
+- **Rule:** the sheet edits the tree only; timestamps are set on save, never while previewing
 
 ### Substitution Rows
 - **Trigger:** long-press a quantity row whose ingredient has a swap in the built-in seed-density table
@@ -227,7 +244,7 @@ Card corners 4px — nearly square, like real index cards. Row separators are 1p
 ### Recipe Filter
 - **Where:** pinned under the lid rule, above the card stack; it does not scroll away
 - **Style:** single-line TextField in Courier, search icon prefix, hint "Find a recipe"
-- **Behavior:** case-insensitive substring match on the recipe name, applied as you type; the list below builds lazily so a box of a thousand cards stays smooth
+- **Behavior:** case-insensitive substring match on the recipe name and on compound part names, applied as you type; the list below builds lazily so a box of a thousand cards stays smooth
 - **Empty state:** pencil annotation "No cards match …" when nothing matches (the box holds recipes and blends)
 
 ## Do's and Don'ts
