@@ -193,6 +193,23 @@ class Recipe {
         tree: tree?.scaledBy(factor),
       );
 
+  /// Returns a copy where the tree's refs to [originalId] point at
+  /// [replacement], each factor preserved — the same swap as
+  /// [RecipeTree.replaceRecipe] at recipe altitude. Returns this when the
+  /// tree is null or holds no ref with that id, so callers can skip
+  /// upserts via [identical]; timestamps stay caller-set.
+  Recipe replaceRecipe(String originalId, Recipe replacement) {
+    final current = tree;
+    if (current == null) return this;
+    if (!current.components.any(
+      (component) =>
+          component is ComponentRef && component.recipe.id == originalId,
+    )) {
+      return this;
+    }
+    return copyWith(tree: current.replaceRecipe(originalId, replacement));
+  }
+
   /// Returns a copy where every blend line whose blend has [blendId]
   /// points at [replacement], keeping each line's attached grams — the
   /// factors-preserved rule, at blend altitude. Returns this identically

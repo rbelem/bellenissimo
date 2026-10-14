@@ -210,4 +210,157 @@ void main() {
       expect(leaf.line.quantity.amount, 200);
     });
   });
+
+  group('Recipe.replaceRecipe', () {
+    final batterA = Recipe(
+      id: 'batter-a',
+      name: 'batter a',
+      yield: const YieldSpec(count: 1),
+      lines: [
+        const RecipeLine(Ingredient('flour', gramsPerMl: 0.5), Quantity(250, Unit.g)),
+      ],
+    );
+
+    final batterB = Recipe(
+      id: 'batter-b',
+      parentId: 'batter-a',
+      name: 'batter b',
+      yield: const YieldSpec(count: 1),
+      lines: [
+        const RecipeLine(Ingredient('spelt', gramsPerMl: 0.5), Quantity(250, Unit.g)),
+      ],
+    );
+
+    test('a recipe without a tree returns this identically', () {
+      expect(
+        identical(cookieRecipe.replaceRecipe('batter-a', batterB), cookieRecipe),
+        isTrue,
+      );
+    });
+
+    test('a tree without a matching ref returns this identically', () {
+      final cake = Recipe.compound(
+        name: 'layer cake',
+        yield: const YieldSpec(count: 1),
+        tree: RecipeTree(name: 'layer cake', components: [
+          ComponentRef(batterA, factor: 1.0),
+        ]),
+      );
+
+      expect(identical(cake.replaceRecipe('nope', batterB), cake), isTrue);
+    });
+
+    test('a swap on a scaled compound keeps the accumulated factor and the magnitude', () {
+      final cake = Recipe.compound(
+        name: 'layer cake',
+        yield: const YieldSpec(count: 2),
+        tree: RecipeTree(name: 'layer cake', components: [
+          ComponentRef(batterA, factor: 1.0),
+        ]),
+      );
+      final derivative = cake.scaledBy(2);
+
+      final swapped = derivative.replaceRecipe('batter-a', batterB);
+
+      expect(identical(swapped, derivative), isFalse);
+      final ref = swapped.tree!.components.single as ComponentRef;
+      expect(ref.factor, closeTo(2.0, 1e-9));
+      expect(ref.recipe, same(batterB));
+      expect(batterA.scaledBy(2).lines.single.quantity.amount,
+          batterB.scaledBy(ref.factor).lines.single.quantity.amount);
+    });
+  });
+
+  group('RecipeBook.replacingRecipe', () {
+    final batterA = Recipe(
+      id: 'batter-a',
+      name: 'batter a',
+      yield: const YieldSpec(count: 1),
+      lines: [
+        const RecipeLine(Ingredient('flour', gramsPerMl: 0.5), Quantity(250, Unit.g)),
+      ],
+    );
+
+    final batterB = Recipe(
+      id: 'batter-b',
+      parentId: 'batter-a',
+      name: 'batter b',
+      yield: const YieldSpec(count: 1),
+      lines: [
+        const RecipeLine(Ingredient('spelt', gramsPerMl: 0.5), Quantity(250, Unit.g)),
+      ],
+    );
+
+    test('the walk reuses non-holders by identity and preserves timestamps on the holder', () {
+      final created = DateTime(2026, 10, 14, 9);
+      final updated = DateTime(2026, 10, 14, 10);
+      final plain = Recipe(
+        id: 'cookies',
+        name: 'cookies',
+        yield: const YieldSpec(count: 24),
+        lines: const [
+          RecipeLine(Ingredient('flour', gramsPerMl: 0.5), Quantity(250, Unit.g)),
+        ],
+      );
+      final cake = Recipe.compound(
+        id: 'cake',
+        name: 'layer cake',
+        yield: const YieldSpec(count: 2),
+        tree: RecipeTree(name: 'layer cake', components: [
+          ComponentRef(batterA, factor: 1.5),
+        ]),
+        createdAt: created,
+        updatedAt: updated,
+      );
+      final book = RecipeBook([plain, cake]);
+
+      final replaced = book.replacingRecipe('batter-a', batterB);
+
+      expect(identical(replaced.recipes[0], plain), isTrue);
+      expect(identical(replaced.recipes[1], cake), isFalse);
+      expect(replaced.recipes[1].createdAt, created);
+      expect(replaced.recipes[1].updatedAt, updated);
+      final ref = replaced.recipes[1].tree!.components.single as ComponentRef;
+      expect(ref.factor, 1.5);
+      expect(ref.recipe, same(batterB));
+    });
+  });
+
+  group('nested compounds', () {
+    test('a compound ref that is itself a compound scales by the factor product', () {
+      final cream = Recipe(
+        name: 'cream',
+        yield: const YieldSpec(count: 1),
+        lines: [
+          const RecipeLine(Ingredient('cream', gramsPerMl: 1.0), Quantity(10, Unit.g)),
+        ],
+      );
+      final inner = Recipe.compound(
+        name: 'filling stack',
+        yield: const YieldSpec(count: 1),
+        tree: RecipeTree(name: 'filling stack', components: [
+          ComponentRef(cream, factor: 2.0),
+        ]),
+      );
+      final outer = Recipe.compound(
+        name: 'giant torte',
+        yield: const YieldSpec(count: 1),
+        tree: RecipeTree(name: 'giant torte', components: [
+          ComponentRef(inner, factor: 3.0),
+        ]),
+      );
+
+      final scaled = outer.scaledBy(5);
+
+      final outerRef = scaled.tree!.components.single as ComponentRef;
+      expect(outerRef.factor, closeTo(15.0, 1e-9));
+      expect(outerRef.recipe, same(inner));
+      final effective = outerRef.recipe.scaledBy(outerRef.factor);
+      final innerRef = effective.tree!.components.single as ComponentRef;
+      expect(innerRef.factor, closeTo(30.0, 1e-9));
+      expect(innerRef.recipe, same(cream));
+      expect(innerRef.recipe.scaledBy(innerRef.factor).lines.single.quantity.amount,
+          closeTo(300, 1e-9));
+    });
+  });
 }

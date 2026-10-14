@@ -40,4 +40,12 @@ class RecipeBook {
   RecipeBook replacingBlend(String blendId, Blend replacement) => RecipeBook([
         for (final recipe in recipes) recipe.replaceBlend(blendId, replacement),
       ]);
+
+  /// Returns a book where every compound holding a ref to [originalId]
+  /// points at [replacement]; recipes that don't hold the ref are reused
+  /// by identity ([Recipe.replaceRecipe]).
+  RecipeBook replacingRecipe(String originalId, Recipe replacement) => RecipeBook([
+        for (final recipe in recipes)
+          recipe.replaceRecipe(originalId, replacement),
+      ]);
 }
