@@ -26,6 +26,7 @@ abstract final class RecipeCodec {
           'gramsPerMl': line.ingredient.gramsPerMl,
           'gramsPerPiece': line.ingredient.gramsPerPiece,
           'roundingStep': line.ingredient.roundingStep,
+          'scalingExponent': line.ingredient.scalingExponent,
           'value': line.quantity.amount,
           'unit': line.quantity.unit.name,
         },
@@ -64,6 +65,7 @@ abstract final class RecipeCodec {
       gramsPerMl: (doc['gramsPerMl'] as num?)?.toDouble(),
       gramsPerPiece: (doc['gramsPerPiece'] as num?)?.toDouble(),
       roundingStep: (doc['roundingStep'] as num?)?.toDouble(),
+      scalingExponent: (doc['scalingExponent'] as num?)?.toDouble(),
     ),
     Quantity(
       (doc['value']! as num).toDouble(),
