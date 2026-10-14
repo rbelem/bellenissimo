@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'editor/recipe_editor.dart';
 import 'export/box_dialog.dart';
 import 'import/recipe_import_dialog.dart';
+import 'persistence/blend_store.dart';
 import 'persistence/recipe_store.dart';
 import 'recipe_card.dart';
 import 'seed_recipes.dart';
@@ -11,12 +12,15 @@ import 'theme.dart';
 
 /// Fallback store for tests and for launches where no database file can
 /// be opened; seeded so the box is never empty.
-final RecipeStore _fallbackStore = RecipeStore.inMemory()..ensureSeeded(seedRecipes);
+final RecipeStore _fallbackStore = RecipeStore.inMemory()
+  ..ensureSeeded(seedRecipes);
 
 class RecipesPage extends StatefulWidget {
-  const RecipesPage({super.key, this.store});
+  const RecipesPage({super.key, this.store, this.blendStore});
 
   final RecipeStore? store;
+
+  final BlendStore? blendStore;
 
   @override
   State<RecipesPage> createState() => _RecipesPageState();
@@ -24,6 +28,7 @@ class RecipesPage extends StatefulWidget {
 
 class _RecipesPageState extends State<RecipesPage> {
   late final RecipeStore _store;
+  late final BlendStore _blendStore;
   late List<Recipe> _recipes;
   late RecipeBook _book;
   final Map<String, double> _targets = {};
@@ -39,8 +44,9 @@ class _RecipesPageState extends State<RecipesPage> {
     return [
       for (final recipe in _recipes)
         if (recipe.name.toLowerCase().contains(query) ||
-            recipe.lines.any((line) =>
-                line.ingredient.id.toLowerCase().contains(query)))
+            recipe.lines.any(
+              (line) => line.ingredient.id.toLowerCase().contains(query),
+            ))
           recipe,
     ];
   }
@@ -49,6 +55,7 @@ class _RecipesPageState extends State<RecipesPage> {
   void initState() {
     super.initState();
     _store = widget.store ?? _fallbackStore;
+    _blendStore = widget.blendStore ?? BlendStore.inMemory(_store);
     _reload();
   }
 
@@ -165,7 +172,9 @@ class _RecipesPageState extends State<RecipesPage> {
               ListTile(
                 key: ValueKey('sub-$prefix-${option.withIngredient.id}'),
                 leading: const Icon(Icons.swap_horiz),
-                title: Text('Replace ${line.ingredient.id} with ${option.withIngredient.id}'),
+                title: Text(
+                  'Replace ${line.ingredient.id} with ${option.withIngredient.id}',
+                ),
                 subtitle: option.note == null ? null : Text(option.note!),
                 onTap: () {
                   Navigator.of(context).pop();
@@ -206,6 +215,7 @@ class _RecipesPageState extends State<RecipesPage> {
             onPressed: () => showBoxDialog(
               context,
               _store,
+              blends: _blendStore,
               onChanged: () => setState(_reload),
             ),
           ),
@@ -267,16 +277,14 @@ class _RecipesPageState extends State<RecipesPage> {
   }
 
   Widget _recipeList(List<Recipe> visible) => ListView.builder(
-        padding: const EdgeInsets.fromLTRB(14, 16, 14, 32),
-        itemCount: visible.length,
-        itemBuilder: (context, index) => Padding(
-          key: ValueKey(visible[index].id),
-          padding: EdgeInsets.only(
-            bottom: index == visible.length - 1 ? 0 : 16,
-          ),
-          child: _recipeCard(visible[index]),
-        ),
-      );
+    padding: const EdgeInsets.fromLTRB(14, 16, 14, 32),
+    itemCount: visible.length,
+    itemBuilder: (context, index) => Padding(
+      key: ValueKey(visible[index].id),
+      padding: EdgeInsets.only(bottom: index == visible.length - 1 ? 0 : 16),
+      child: _recipeCard(visible[index]),
+    ),
+  );
 
   Widget _recipeCard(Recipe raw) {
     final prefix = seedPrefixes[raw.id] ?? raw.id!;

@@ -4,6 +4,8 @@ import 'dart:io';
 import 'package:bellenissimos_core/core.dart';
 
 import '../export/box_io.dart';
+import 'blend_codec.dart';
+import 'blend_store.dart';
 import 'recipe_codec.dart';
 
 /// JSON-file-backed recipe storage: one document, one list, written
@@ -108,15 +110,21 @@ class RecipeStore {
     return candidate;
   }
 
-  /// Serializes the whole box to one versioned JSON document.
-  String exportBox() => encodeBox(all());
+  /// Serializes the whole box to one versioned JSON document, blend
+  /// library included.
+  String exportBox(List<BlendRecord> blends) => encodeBox(all(), blends);
 
-  /// Restores a box document produced by [exportBox]. In replace mode
-  /// the store is cleared first; in merge mode every incoming recipe
-  /// upserts by id. Rejected payloads leave the store untouched and
-  /// are reported as issues; importing never throws.
-  BoxImportResult importBox(String source, {required BoxImportMode mode}) {
-    final (recipes, issues) = parseBox(source);
+  /// Restores a box document produced by [exportBox], writing recipes
+  /// into this store and blends into [blends]. In replace mode both
+  /// stores are cleared first; in merge mode every incoming row upserts
+  /// by id. Rejected payloads leave both stores untouched and are
+  /// reported as issues; importing never throws.
+  BoxImportResult importBox(
+    String source, {
+    required BoxImportMode mode,
+    required BlendStore blends,
+  }) {
+    final (recipes, blendRecords, issues) = parseBox(source);
     if (recipes.isEmpty && issues.isNotEmpty) {
       return BoxImportResult(0, issues);
     }
@@ -136,6 +144,12 @@ class RecipeStore {
         }
     }
     _flush();
-    return BoxImportResult(recipes.length, issues);
+    switch (mode) {
+      case BoxImportMode.replace:
+        blends.replaceAll(blendRecords);
+      case BoxImportMode.merge:
+        blends.upsertAll(blendRecords);
+    }
+    return BoxImportResult(recipes.length, issues, blends: blendRecords.length);
   }
 }

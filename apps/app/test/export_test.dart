@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:bellenissimos_app/export/box_io.dart';
+import 'package:bellenissimos_app/persistence/blend_codec.dart';
+import 'package:bellenissimos_app/persistence/blend_store.dart';
 import 'package:bellenissimos_app/persistence/recipe_codec.dart';
 import 'package:bellenissimos_app/persistence/recipe_store.dart';
 import 'package:bellenissimos_app/seed_recipes.dart';
@@ -17,6 +19,18 @@ Recipe _variant() => butterCookies.copyWith(
 );
 
 Recipe _renamedButter() => butterCookies.copyWith(name: 'Butter cookies v2');
+
+BlendRecord _honeyMix() => BlendRecord(
+  blend: SweetenerBlend(
+    id: 'honey-mix',
+    name: 'Honey mix',
+    grams: {const Ingredient('honey'): 60, const Ingredient('sugar'): 140},
+    sweetnessPerGram: {
+      const Ingredient('honey'): 1.1,
+      const Ingredient('sugar'): 1.0,
+    },
+  ),
+);
 
 List<Map<String, Object?>> _docs(RecipeStore store) => [
   for (final recipe in store.all()) RecipeCodec.encode(recipe),
@@ -35,39 +49,49 @@ void main() {
       final store = RecipeStore.inMemory()..ensureSeeded(seedRecipes);
       store.upsert(_variant());
 
-      final decoded = jsonDecode(store.exportBox()) as Map<String, Object?>;
+      final decoded =
+          jsonDecode(store.exportBox(const [])) as Map<String, Object?>;
 
-      expect(decoded['version'], 1);
+      expect(decoded['version'], boxVersion);
       expect(decoded['recipes'], hasLength(4));
     });
 
-    test('serializes recipes as codec docs', () {
+    test('serializes recipes as codec docs and carries the blend library', () {
       final store = RecipeStore.inMemory()..ensureSeeded(seedRecipes);
+      final blends = BlendStore.inMemory(store)..upsertAll([_honeyMix()]);
 
-      final decoded = jsonDecode(store.exportBox()) as Map<String, Object?>;
+      final decoded =
+          jsonDecode(store.exportBox(blends.all())) as Map<String, Object?>;
 
       expect(
         (decoded['recipes']! as List<Object?>).first,
         RecipeCodec.encode(butterCookies),
       );
+      expect(decoded['blends'], hasLength(1));
     });
   });
 
   group('importBox replace', () {
     test('restores the exported box byte-equivalent through the codec', () {
       final source = RecipeStore.inMemory()..ensureSeeded(seedRecipes);
+      final sourceBlends = BlendStore.inMemory(source)
+        ..upsertAll([_honeyMix()]);
       source.upsert(_variant());
       final target = RecipeStore.inMemory();
+      final targetBlends = BlendStore.inMemory(target);
 
       final result = target.importBox(
-        source.exportBox(),
+        source.exportBox(sourceBlends.all()),
         mode: BoxImportMode.replace,
+        blends: targetBlends,
       );
 
       expect(result.ok, isTrue);
       expect(result.imported, 4);
+      expect(result.blends, 1);
       expect(result.issues, isEmpty);
       expect(_docs(target), _docs(source));
+      expect(targetBlends.byId('honey-mix')!.blend.totalGrams, 200);
       expect(_ids(target), [
         'butter-cookies',
         'egg-free-cookies',
@@ -81,8 +105,13 @@ void main() {
       payloadSource.upsert(_renamedButter());
       payloadSource.upsert(_variant());
       final target = RecipeStore.inMemory()..ensureSeeded(seedRecipes);
+      final targetBlends = BlendStore.inMemory(target);
 
-      target.importBox(payloadSource.exportBox(), mode: BoxImportMode.replace);
+      target.importBox(
+        payloadSource.exportBox(const []),
+        mode: BoxImportMode.replace,
+        blends: targetBlends,
+      );
 
       expect(_ids(target), ['butter-cookies', 'test-variant']);
       expect(target.byId('butter-cookies')!.name, 'Butter cookies v2');
@@ -96,8 +125,14 @@ void main() {
       source.upsert(_variant());
       final targetPath = '${dir.path}/nested/b/recipes.json';
 
-      RecipeStore.open(targetPath)
-          .importBox(source.exportBox(), mode: BoxImportMode.replace);
+      RecipeStore.open(targetPath).importBox(
+        source.exportBox(const []),
+        mode: BoxImportMode.replace,
+        blends: BlendStore.open(
+          '${dir.path}/nested/b/blends.json',
+          recipes: RecipeStore.open(targetPath),
+        ),
+      );
 
       final reopened = RecipeStore.open(targetPath);
       expect(_ids(reopened), _ids(source));
@@ -111,10 +146,12 @@ void main() {
       payloadSource.upsert(_renamedButter());
       payloadSource.upsert(_variant());
       final target = RecipeStore.inMemory()..ensureSeeded(seedRecipes);
+      final targetBlends = BlendStore.inMemory(target);
 
       final result = target.importBox(
-        payloadSource.exportBox(),
+        payloadSource.exportBox(const []),
         mode: BoxImportMode.merge,
+        blends: targetBlends,
       );
 
       expect(result.ok, isTrue);
@@ -133,6 +170,7 @@ void main() {
 
     test('skips an unreadable entry and reports the issue', () {
       final target = RecipeStore.inMemory()..ensureSeeded(seedRecipes);
+      final targetBlends = BlendStore.inMemory(target);
       final payload = _rawBox(
         recipes: [
           RecipeCodec.encode(_variant()),
@@ -140,7 +178,11 @@ void main() {
         ],
       );
 
-      final result = target.importBox(payload, mode: BoxImportMode.merge);
+      final result = target.importBox(
+        payload,
+        mode: BoxImportMode.merge,
+        blends: targetBlends,
+      );
 
       expect(result.imported, 1);
       expect(result.issues, hasLength(1));
@@ -156,66 +198,91 @@ void main() {
 
   group('importBox rejects bad payloads without touching the store', () {
     late RecipeStore store;
+    late BlendStore blends;
 
-    setUp(() => store = RecipeStore.inMemory()..ensureSeeded(seedRecipes));
+    setUp(() {
+      store = RecipeStore.inMemory()..ensureSeeded(seedRecipes);
+      blends = BlendStore.inMemory(store)..upsertAll([_honeyMix()]);
+    });
 
     test('malformed JSON', () {
-      final result = store.importBox('{oops', mode: BoxImportMode.replace);
+      final result = store.importBox(
+        '{oops',
+        mode: BoxImportMode.replace,
+        blends: blends,
+      );
 
       expect(result.imported, 0);
       expect(result.issues.map((i) => i.toString()), ['Malformed JSON']);
       expect(store.all(), hasLength(3));
+      expect(blends.all(), hasLength(1));
     });
 
     test('document without a version marker', () {
-      final result = store.importBox('{}', mode: BoxImportMode.replace);
+      final result = store.importBox(
+        '{}',
+        mode: BoxImportMode.replace,
+        blends: blends,
+      );
 
       expect(result.imported, 0);
       expect(result.issues.single.toString(), 'Missing box version marker');
       expect(store.all(), hasLength(3));
+      expect(blends.all(), hasLength(1));
     });
 
     test('empty payload', () {
       final result = store.importBox(
         _rawBox(recipes: []),
         mode: BoxImportMode.replace,
+        blends: blends,
       );
 
       expect(result.imported, 0);
       expect(result.issues.single.toString(), 'Box contains no recipes');
       expect(store.all(), hasLength(3));
+      expect(blends.all(), hasLength(1));
     });
 
     test('missing recipes list', () {
       final result = store.importBox(
         '{"version": 1}',
         mode: BoxImportMode.replace,
+        blends: blends,
       );
 
       expect(result.imported, 0);
       expect(result.issues.single.toString(), 'Missing recipes list');
       expect(store.all(), hasLength(3));
+      expect(blends.all(), hasLength(1));
     });
 
     test('newer version marker', () {
       final result = store.importBox(
-        _rawBox(version: 2, recipes: [RecipeCodec.encode(_variant())]),
+        _rawBox(version: 99, recipes: [RecipeCodec.encode(_variant())]),
         mode: BoxImportMode.replace,
+        blends: blends,
       );
 
       expect(result.imported, 0);
-      expect(result.issues.single.toString(), 'Unsupported box version: 2');
+      expect(result.issues.single.toString(), 'Unsupported box version: 99');
       expect(store.all(), hasLength(3));
+      expect(blends.all(), hasLength(1));
     });
 
     test('not a document', () {
       for (final source in ['[1, 2]', '"nope"', '42']) {
-        final result = store.importBox(source, mode: BoxImportMode.merge);
+        final result = store.importBox(
+          source,
+          mode: BoxImportMode.merge,
+          blends: blends,
+        );
 
         expect(result.imported, 0);
         expect(result.issues.single.toString(), 'Not a box document');
       }
       expect(store.all(), hasLength(3));
+      expect(blends.all(), hasLength(1));
     });
   });
 }
