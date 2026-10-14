@@ -32,8 +32,10 @@ and tests on every push and PR.
 - Recipes are immutable. Scaling returns new instances; the original is
   untouched.
 - Single-rounding rule: ingredient `roundingStep` (half eggs) applies ONCE
-  with the full compound factor. RecipeTree scales ComponentRefs by
-  `ref.factor * treeFactor` in one pass — never chain two `scaledBy` calls.
+  with the full compound factor. `RecipeTree.scaledBy` only accumulates the
+  ref factor (snapshot untouched); the one `scaledBy` pass happens at
+  realization (`recipe.scaledBy(ref.factor)`), and `replaceRecipe` swaps
+  stay magnitude-preserving.
 - `YieldSpec.factorTo` takes exactly one target and throws on zero or two.
 - Derivatives: a child sets `parentId`; listing is computed via `RecipeBook`
   (parents are never mutated). `replaceRecipe(originalId, replacement)`
