@@ -2,10 +2,12 @@ import 'package:bellenissimos_core/core.dart';
 import 'package:flutter/material.dart';
 
 import 'editor/blend_editor.dart';
+import 'editor/compound_editor.dart';
 import 'editor/recipe_editor.dart';
 import 'export/box_dialog.dart';
 import 'import/recipe_import_dialog.dart';
 import 'blend_card.dart';
+import 'compound_math.dart';
 import 'persistence/blend_codec.dart';
 import 'persistence/blend_store.dart';
 import 'persistence/recipe_store.dart';
@@ -56,7 +58,8 @@ class _RecipesPageState extends State<RecipesPage> {
           if (recipe.name.toLowerCase().contains(query) ||
               recipe.lines.any(
                 (line) => line.ingredient.id.toLowerCase().contains(query),
-              ))
+              ) ||
+              compoundPartMatches(recipe, query))
             recipe,
       ];
       blends = [
@@ -127,6 +130,12 @@ class _RecipesPageState extends State<RecipesPage> {
               title: const Text('Flour mix'),
               onTap: () => Navigator.of(context).pop('flour'),
             ),
+            ListTile(
+              key: const ValueKey('add-choice-compound'),
+              leading: const Icon(Icons.layers),
+              title: const Text('Compound dish'),
+              onTap: () => Navigator.of(context).pop('compound'),
+            ),
           ],
         ),
       ),
@@ -138,7 +147,14 @@ class _RecipesPageState extends State<RecipesPage> {
         await _editBlend(null, BlendKind.sweetener);
       case 'flour':
         await _editBlend(null, BlendKind.flour);
+      case 'compound':
+        await _addCompound();
     }
+  }
+
+  Future<void> _addCompound() async {
+    final saved = await showCompoundEditor(context, _store);
+    if (saved != null) setState(_reload);
   }
 
   Future<void> _editBlend(BlendRecord? record, BlendKind kind) async {
@@ -232,6 +248,11 @@ class _RecipesPageState extends State<RecipesPage> {
   }
 
   Future<void> _editRecipe(Recipe raw) async {
+    if (raw.isCompound) {
+      final saved = await showCompoundEditor(context, _store, recipe: raw);
+      if (saved != null) setState(_reload);
+      return;
+    }
     final saved = await showRecipeEditor(
       context,
       _store,
@@ -284,15 +305,16 @@ class _RecipesPageState extends State<RecipesPage> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            ListTile(
-              key: ValueKey('menu-variant-${raw.id}'),
-              leading: const Icon(Icons.call_split),
-              title: Text('Save a variant of ${raw.name}'),
-              onTap: () {
-                Navigator.of(context).pop();
-                _newVariant(raw);
-              },
-            ),
+            if (!raw.isCompound)
+              ListTile(
+                key: ValueKey('menu-variant-${raw.id}'),
+                leading: const Icon(Icons.call_split),
+                title: Text('Save a variant of ${raw.name}'),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  _newVariant(raw);
+                },
+              ),
             ListTile(
               key: ValueKey('menu-edit-${raw.id}'),
               leading: const Icon(Icons.edit_outlined),
