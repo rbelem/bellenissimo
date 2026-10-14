@@ -71,20 +71,20 @@ void main() {
     testWidgets('switches mass quantities to ounces and back',
         (tester) async {
       await pumpApp(tester);
-      expect(find.text('250 g flour'), findsOneWidget);
+      expect(find.text('250 g flour'), findsNWidgets(2));
 
       await tester.tap(find.byKey(const ValueKey('toggle-mass-unit')));
       await tester.pumpAndSettle();
       final ounces = 250 / Unit.oz.canonicalFactor;
       expect(
         find.text('${ounces.toStringAsFixed(1)} oz flour'),
-        findsOneWidget,
+        findsNWidgets(2),
       );
       expect(find.text('250 g flour'), findsNothing);
 
       await tester.tap(find.byKey(const ValueKey('toggle-mass-unit')));
       await tester.pumpAndSettle();
-      expect(find.text('250 g flour'), findsOneWidget);
+      expect(find.text('250 g flour'), findsNWidgets(2));
     });
   });
 
@@ -92,7 +92,9 @@ void main() {
     testWidgets('long-press offers swaps and the row shows the note',
         (tester) async {
       await pumpApp(tester);
-      await tester.longPress(find.text('200 g butter'));
+      await tester.longPress(
+        find.byKey(const ValueKey('cookies-line-butter')),
+      );
       await tester.pumpAndSettle();
 
       await tester.tap(
@@ -102,7 +104,7 @@ void main() {
 
       expect(find.text('211 g oil'), findsOneWidget);
       expect(find.text('melted, same volume roughly'), findsOneWidget);
-      expect(find.text('200 g butter'), findsNothing);
+      expect(find.text('200 g butter'), findsOneWidget);
     });
   });
 }

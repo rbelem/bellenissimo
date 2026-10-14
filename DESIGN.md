@@ -47,7 +47,6 @@ typography:
     lineHeight: 1.45
 rounded:
   card: "4px"
-  stamp: "2px"
 spacing:
   xs: "3px"
   sm: "8px"
@@ -58,10 +57,6 @@ components:
     backgroundColor: "{colors.card-cream}"
     textColor: "{colors.ink}"
     rounded: "{rounded.card}"
-  variant-stamp:
-    backgroundColor: "transparent"
-    textColor: "{colors.stamp-red}"
-    rounded: "{rounded.stamp}"
   yield-line-changed:
     backgroundColor: "transparent"
     textColor: "{colors.stamp-red}"
@@ -84,7 +79,7 @@ components:
 
 **Creative North Star: "The Recipe Box"**
 
-Every recipe is an index card in one family box. The app is a walnut card box holding cream stock: titles are typed in a workmanlike slab, quantities are measurement type, lineage is penciled in handwriting, and a derivative is an annotated copy — stamped VARIANT, never re-typed from scratch. The world lends warmth and material; it never supplies navigation or controls, which stay standard Material 3.
+Every recipe is an index card in one family box. The app is a walnut card box holding cream stock: titles are typed in a workmanlike slab, quantities are measurement type, lineage is penciled in handwriting, and a derivative is an annotated copy — same card as any other, its lineage penciled in, never re-typed from scratch. The world lends warmth and material; it never supplies navigation or controls, which stay standard Material 3.
 
 Density is ruled-card density: hairline rules every row, one spacing rhythm, no ornaments between the baker and the next number. The aesthetic philosophy is precision without intimidation — pro-grade formula discipline served on home-kitchen card stock.
 
@@ -100,7 +95,7 @@ Density is ruled-card density: hairline rules every row, one spacing rhythm, no 
 A warm paper-and-timber palette where red is scarce and therefore loud.
 
 ### Primary
-- **Stamp Red** (#C03B2E): the accent — the VARIANT stamp border and text, the changed-yield underline, the lid rule under the app bar, and slider accents only while scaled or dragged. Its rarity is the point. Dark scheme lightens it to #E06A55 for contrast.
+- **Stamp Red** (#C03B2E): the accent — the changed-yield underline, the lid rule under the app bar, destructive confirms, and slider accents only while scaled or dragged. Its rarity is the point. Dark scheme lightens it to #E06A55 for contrast.
 
 ### Neutral
 - **Walnut** (#3E2F23): the box interior — scaffold ground and app bar in the light scheme; deepens to **Espresso** (#241B14) in dark.
@@ -110,7 +105,7 @@ A warm paper-and-timber palette where red is scarce and therefore loud.
 - **Rule** (#E2D8C4): 1px hairlines under every quantity row, inactive slider track; **Rule Dark** (#4A3B2C) in dark.
 
 ### Named Rules
-**The Red Reservation Rule.** Stamp red appears on exactly three things: the VARIANT stamp, a changed yield line, and the 2px lid rule. It never decorates. An idle slider is pencil on rule, not red.
+**The Red Reservation Rule.** Stamp red appears on exactly two things: a changed yield line and the 2px lid rule (destructive confirms use it for the confirm button only). It never decorates. An idle slider is pencil on rule, not red.
 
 **The No Gray Rule.** Secondary text is tinted pencil (warm, hue-derived), never pure gray, on both cream and espresso.
 
@@ -146,7 +141,7 @@ Cards rest on the box like stacked stock: every card carries a soft offset shado
 
 ## Shapes
 
-Card corners 4px — nearly square, like real index cards. The stamp is 2px with a 2px border, rotated ~5°, always top-right. Row separators are 1px hairlines. Nothing else rounds; pill shapes and large radii belong to other worlds.
+Card corners 4px — nearly square, like real index cards. Row separators are 1px hairlines. Nothing else rounds; pill shapes and large radii belong to other worlds.
 
 ## Components
 
@@ -170,10 +165,9 @@ Card corners 4px — nearly square, like real index cards. The stamp is 2px with
 - **A11y:** wrapped in a Semantics label ("Scale <recipe> yield")
 - **Behavior:** while dragged, sibling cards dim to 55% opacity (200ms; instant under Reduce Motion)
 
-### Variant Stamp
-- **Shape:** 2px radius, 2px stamp-red border, transparent fill, rotated ~5°
-- **Typography:** ZillaSlab 600 11px, +2px tracking, uppercase "VARIANT"
-- **Position:** top-right of the card, overlapping nothing (titles reserve 96px of right padding on stamped cards)
+### Variant Card
+- **Rule:** a variant renders exactly like any other recipe card — ruled quantity rows, yield line, scale slider, pan section. There is no stamp and no special chrome.
+- **Difference:** the Caveat lineage note under the title ("variant of Butter cookies") is the only marker of derivation; any card, variant included, can spawn another variant from its card menu.
 
 ### Lineage Note
 - **Style:** Caveat 17px, pencil — "variant of Butter cookies", "variants: …"
@@ -208,7 +202,7 @@ Card corners 4px — nearly square, like real index cards. The stamp is 2px with
 ## Do's and Don'ts
 
 ### Do:
-- **Do** keep stamp red for the VARIANT stamp, changed yields, the lid rule, and destructive confirms — nothing else.
+- **Do** keep stamp red for changed yields, the lid rule, and destructive confirms — nothing else.
 - **Do** set every quantity in Courier Prime with tabular alignment.
 - **Do** render lineage (variant/parent relations) in Caveat pencil.
 - **Do** let approximations stay visible: seeds are offered, never imposed.
