@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -8,18 +10,21 @@ import 'theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(await _buildApp());
+  runApp(await buildApp(getApplicationSupportDirectory));
 }
 
-Future<Widget> _buildApp() async {
+/// Builds the app on a file store rooted at the directory [supportDir]
+/// supplies. Without usable storage the box still opens, on a seeded
+/// in-memory store.
+Future<Widget> buildApp(
+  Future<Directory> Function() supportDir,
+) async {
   try {
-    final dir = await getApplicationSupportDirectory();
+    final dir = await supportDir();
     final store = RecipeStore.open('${dir.path}/recipes.json');
     store.ensureSeeded(seedRecipes);
     return BellenissimosApp(store: store);
   } catch (_) {
-    // No usable storage on this machine: the box still opens, on a
-    // seeded in-memory store.
     return const BellenissimosApp();
   }
 }

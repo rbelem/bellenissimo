@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:bellenissimos_app/main.dart' as app;
+import 'package:bellenissimos_app/persistence/recipe_store.dart';
 import 'package:bellenissimos_app/recipe_card.dart';
 import 'package:bellenissimos_app/seed_recipes.dart';
 import 'package:bellenissimos_core/core.dart';
@@ -154,6 +157,106 @@ void main() {
     await tester.pump();
     await tester.pumpAndSettle();
     expect(find.text('Recipes'), findsOneWidget);
+  });
+
+  testWidgets('the app boots on a file-backed store and seeds it',
+      (tester) async {
+    final dir = Directory.systemTemp.createTempSync('bellenissimos-boot-');
+    addTearDown(() => dir.deleteSync(recursive: true));
+    final widget = await app.buildApp(() async => dir);
+    await tester.pumpWidget(widget);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Recipes'), findsOneWidget);
+    expect(find.text('Butter cookies'), findsOneWidget);
+    final file = File('${dir.path}/recipes.json');
+    expect(file.existsSync(), isTrue);
+    expect(RecipeStore.open(file.path).all().length, 3);
+  });
+
+  testWidgets('keep keeps the recipe', (tester) async {
+    await pumpApp(tester);
+    await tester.tap(find.byKey(const ValueKey('menu-egg-free-cookies')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('menu-delete-egg-free-cookies')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Keep'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Egg-free butter cookies'), findsOneWidget);
+    expect(find.text('Delete Egg-free butter cookies?'), findsNothing);
+  });
+
+  testWidgets('square and rectangular pans change the factor line',
+      (tester) async {
+    await pumpApp(tester);
+    await tester.tap(find.byKey(const ValueKey('pan-shape-cookies')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('square'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('pan-dim-cookies')),
+      '25',
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('side cm'), findsOneWidget);
+    var factor = panScaleFactor(Pan.round(20, 5), Pan.square(25, 5));
+    expect(
+      find.text(
+        'pan factor ×${factor.toStringAsFixed(2)} · '
+        'bake ≈ ${scaledBakingTime(Duration(minutes: 12), factor).inMinutes} min (base 12)',
+      ),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('pan-shape-cookies')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('rectangular'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('length cm'), findsOneWidget);
+    factor = panScaleFactor(Pan.round(20, 5), Pan.rectangular(25, 25, 5));
+    expect(
+      find.text(
+        'pan factor ×${factor.toStringAsFixed(2)} · '
+        'bake ≈ ${scaledBakingTime(Duration(minutes: 12), factor).inMinutes} min (base 12)',
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('a deeper pan raises the factor', (tester) async {
+    await pumpApp(tester);
+    await tester.enterText(
+      find.byKey(const ValueKey('pan-depth-cookies')),
+      '8',
+    );
+    await tester.pumpAndSettle();
+
+    final factor = panScaleFactor(Pan.round(20, 5), Pan.round(20, 8));
+    expect(
+      find.text(
+        'pan factor ×${factor.toStringAsFixed(2)} · '
+        'bake ≈ ${scaledBakingTime(Duration(minutes: 12), factor).inMinutes} min (base 12)',
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('reduce motion swaps the yield without a transition',
+      (tester) async {
+    tester.platformDispatcher.accessibilityFeaturesTestValue =
+        const FakeAccessibilityFeatures(disableAnimations: true);
+    addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+    await pumpApp(tester);
+    tester
+        .widget<Slider>(find.byKey(const ValueKey('cookies-slider')))
+        .onChanged!(36);
+    await tester.pump();
+
+    expect(find.text('Target: 36 cookies'), findsOneWidget);
+    expect(find.byType(AnimatedSwitcher), findsNothing);
   });
 
   testWidgets('cards build lazily on a real screen', (tester) async {

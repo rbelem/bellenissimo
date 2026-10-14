@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:bellenissimos_app/persistence/recipe_codec.dart';
 import 'package:bellenissimos_app/persistence/recipe_store.dart';
 import 'package:bellenissimos_app/seed_recipes.dart';
@@ -140,6 +142,40 @@ void main() {
       final eggLine =
           restored.lines.firstWhere((l) => l.ingredient.id == 'egg');
       expect(eggLine.ingredient.roundingStep, 0.5);
+    });
+
+    test('uniqueId appends a suffix on collision', () {
+      store.ensureSeeded(seedRecipes);
+      expect(store.uniqueId('Butter Cookies'), 'butter-cookies-2');
+      expect(store.uniqueId('Sandwich loaf'), 'sandwich-loaf-2');
+      expect(store.uniqueId('Pancakes'), 'pancakes');
+    });
+  });
+
+  group('file-backed RecipeStore', () {
+    test('persists across opens and creates parent directories', () {
+      final dir = Directory.systemTemp.createTempSync('bellenissimos-open-');
+      addTearDown(() => dir.deleteSync(recursive: true));
+      final path = '${dir.path}/nested/recipes.json';
+
+      RecipeStore.open(path).ensureSeeded(seedRecipes);
+      expect(File(path).existsSync(), isTrue);
+
+      final reopened = RecipeStore.open(path);
+      expect(reopened.all().length, 3);
+      expect(reopened.byId('sandwich-loaf')!.yield.totalGrams, 900);
+    });
+
+    test('a delete through one open is visible through the next', () {
+      final dir = Directory.systemTemp.createTempSync('bellenissimos-open-');
+      addTearDown(() => dir.deleteSync(recursive: true));
+      final path = '${dir.path}/recipes.json';
+      RecipeStore.open(path).ensureSeeded(seedRecipes);
+
+      RecipeStore.open(path).delete('egg-free-cookies');
+
+      expect(RecipeStore.open(path).all().map((r) => r.id),
+          ['butter-cookies', 'sandwich-loaf']);
     });
   });
 }

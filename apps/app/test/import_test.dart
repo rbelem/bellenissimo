@@ -89,4 +89,22 @@ void main() {
     expect(find.byKey(const ValueKey('import-submit')), findsOneWidget);
     expect(store.all().length, 3);
   });
+
+  testWidgets('cancel closes the dialog without importing', (tester) async {
+    await pumpApp(tester);
+    await tester.tap(find.byKey(const ValueKey('import-recipe')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('import-json')),
+      '{"@type": "Recipe", "name": "Cancelled cake",'
+      ' "recipeYield": "1 cake", "recipeIngredient": ["200 g flour"]}',
+    );
+
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('import-submit')), findsNothing);
+    expect(byId(store, 'cancelled-cake'), isNull);
+    expect(store.all().length, 3);
+  });
 }

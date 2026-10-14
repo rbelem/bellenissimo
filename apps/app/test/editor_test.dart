@@ -216,4 +216,108 @@ void main() {
     );
     expect(store.all().length, 3);
   });
+
+  testWidgets('adds an ingredient line through the editor', (tester) async {
+    await pumpApp(tester);
+    await tester.tap(find.byKey(const ValueKey('add-recipe')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('editor-add-line')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('editor-name')),
+      'Two-liner',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('editor-line-ingredient-1')),
+      'cocoa',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('editor-line-amount-1')),
+      '30',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('editor-line-amount-0')),
+      '100',
+    );
+    await tester.tap(find.byKey(const ValueKey('editor-save')));
+    await tester.pumpAndSettle();
+
+    final saved = byId(store, 'two-liner')!;
+    expect(saved.lines.length, 2);
+    expect(saved.lines[0].ingredient.id, 'flour');
+    expect(saved.lines[1].ingredient.id, 'cocoa');
+    expect(find.text('30 g cocoa'), findsOneWidget);
+  });
+
+  testWidgets('removes an ingredient line', (tester) async {
+    await pumpApp(tester);
+    await tester.tap(find.byKey(const ValueKey('menu-butter-cookies')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('menu-edit-butter-cookies')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('editor-line-remove-3')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('editor-line-remove-3')), findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('editor-save')));
+    await tester.pumpAndSettle();
+
+    final saved = byId(store, 'butter-cookies')!;
+    expect(saved.lines.length, 3);
+    expect(
+      saved.lines.map((line) => line.ingredient.id),
+      ['flour', 'butter', 'sugar'],
+    );
+    expect(find.text('1 piece egg'), findsNothing);
+  });
+
+  testWidgets('closing the editor discards the draft', (tester) async {
+    await pumpApp(tester);
+    await tester.tap(find.byKey(const ValueKey('add-recipe')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('editor-name')),
+      'Ghost cake',
+    );
+
+    await tester.tap(find.byIcon(Icons.close));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('editor-save')), findsNothing);
+    expect(byId(store, 'ghost-cake'), isNull);
+    expect(store.all().length, 3);
+  });
+
+  testWidgets('switches a line unit to millilitres', (tester) async {
+    await pumpApp(tester);
+    await tester.tap(find.byKey(const ValueKey('add-recipe')));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const ValueKey('editor-name')),
+      'Milk pudding',
+    );
+    await tester.tap(find.byKey(const ValueKey('editor-line-unit-0')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('ml'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('editor-line-ingredient-0')),
+      'milk',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('editor-line-amount-0')),
+      '300',
+    );
+    await tester.tap(find.byKey(const ValueKey('editor-save')));
+    await tester.pumpAndSettle();
+
+    final saved = byId(store, 'milk-pudding')!;
+    expect(saved.lines.single.ingredient.id, 'milk');
+    expect(saved.lines.single.quantity.unit, Unit.ml);
+    expect(saved.lines.single.quantity.amount, 300);
+    expect(find.text('300 ml milk'), findsOneWidget);
+  });
 }
