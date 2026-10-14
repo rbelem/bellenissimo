@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'blend.dart';
 import 'ingredient.dart';
 import 'quantity.dart';
 
@@ -38,6 +39,21 @@ class RecipeLine {
   }
 }
 
+/// One blend and how much of it a [Recipe] needs, attached at line
+/// altitude beside the [RecipeLine]s.
+///
+/// Scaling multiplies [grams] exactly. Per-gram blend ratios are
+/// scale-invariant, so no rounding step ever applies here — snapping a
+/// scaled blend line would compound with the recipe-level rounding rule.
+class BlendLine {
+  const BlendLine(this.blend, this.grams);
+
+  final Blend blend;
+  final double grams;
+
+  BlendLine scaledBy(num factor) => BlendLine(blend, grams * factor);
+}
+
 /// An immutable recipe: lines plus what it yields.
 ///
 /// Scaling never mutates; [scaledBy] returns a new recipe and the
@@ -47,6 +63,7 @@ class Recipe {
     required this.name,
     required this.yield,
     required this.lines,
+    this.blends = const [],
     this.id,
     this.parentId,
     this.steps = const [],
@@ -73,12 +90,17 @@ class Recipe {
   final YieldSpec yield;
   final List<RecipeLine> lines;
 
+  /// Blends attached at line altitude. Adding one never infers yield or
+  /// timestamps; both stay caller-set.
+  final List<BlendLine> blends;
+
   /// Returns a copy with the given fields replaced and everything else
   /// preserved. Use this for derivatives and edits — never mutate lists.
   Recipe copyWith({
     String? name,
     YieldSpec? yield,
     List<RecipeLine>? lines,
+    List<BlendLine>? blends,
     String? id,
     String? parentId,
     List<String>? steps,
@@ -89,6 +111,7 @@ class Recipe {
         name: name ?? this.name,
         yield: yield ?? this.yield,
         lines: lines ?? this.lines,
+        blends: blends ?? this.blends,
         id: id ?? this.id,
         parentId: parentId ?? this.parentId,
         steps: steps ?? this.steps,
@@ -127,5 +150,6 @@ class Recipe {
               yield.totalGrams == null ? null : yield.totalGrams! * factor,
         ),
         lines: [for (final line in lines) line.scaledBy(factor)],
+        blends: [for (final line in blends) line.scaledBy(factor)],
       );
 }
