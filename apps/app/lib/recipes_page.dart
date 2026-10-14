@@ -37,7 +37,10 @@ class _RecipesPageState extends State<RecipesPage> {
     if (query.isEmpty) return _recipes;
     return [
       for (final recipe in _recipes)
-        if (recipe.name.toLowerCase().contains(query)) recipe,
+        if (recipe.name.toLowerCase().contains(query) ||
+            recipe.lines.any((line) =>
+                line.ingredient.id.toLowerCase().contains(query)))
+          recipe,
     ];
   }
 
@@ -224,7 +227,7 @@ class _RecipesPageState extends State<RecipesPage> {
               enableSuggestions: false,
               decoration: const InputDecoration(
                 prefixIcon: Icon(Icons.search),
-                hintText: 'Find a recipe',
+                hintText: 'Find a recipe or ingredient',
               ),
               onChanged: (value) => _filter.value = value,
             ),

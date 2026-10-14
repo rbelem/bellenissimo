@@ -216,6 +216,34 @@ void main() {
       expect(find.text('Butter cookies'), findsNothing);
     });
 
+    testWidgets('matches ingredient ids, not just names', (tester) async {
+      await pumpApp(tester);
+      expect(find.text('Find a recipe or ingredient'), findsOneWidget);
+      await tester.enterText(
+        find.byKey(const ValueKey('recipe-filter')),
+        'applesauce',
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Egg-free butter cookies'), findsOneWidget);
+      expect(find.text('Butter cookies'), findsNothing);
+      expect(find.text('Sandwich loaf'), findsNothing);
+    });
+
+    testWidgets('egg matches both cookie cards by name or ingredient',
+        (tester) async {
+      await pumpApp(tester);
+      await tester.enterText(
+        find.byKey(const ValueKey('recipe-filter')),
+        'egg',
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Butter cookies'), findsOneWidget);
+      expect(find.text('Egg-free butter cookies'), findsOneWidget);
+      expect(find.text('Sandwich loaf'), findsNothing);
+    });
+
     testWidgets('a keystroke does not rebuild the page chrome', (tester) async {
       await pumpApp(tester);
       final toggleBefore =
