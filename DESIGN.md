@@ -105,7 +105,7 @@ A warm paper-and-timber palette where red is scarce and therefore loud.
 - **Rule** (#E2D8C4): 1px hairlines under every quantity row, inactive slider track; **Rule Dark** (#4A3B2C) in dark.
 
 ### Named Rules
-**The Red Reservation Rule.** Stamp red appears on exactly two things: a changed yield line and the 2px lid rule (destructive confirms use it for the confirm button only). It never decorates. An idle slider is pencil on rule, not red.
+**The Red Reservation Rule.** Stamp red appears only where it carries meaning: a changed yield line, the 2px lid rule, destructive confirms, and slider accents while scaled or dragged. It never decorates. An idle slider is pencil on rule, not red.
 
 **The No Gray Rule.** Secondary text is tinted pencil (warm, hue-derived), never pure gray, on both cream and espresso.
 

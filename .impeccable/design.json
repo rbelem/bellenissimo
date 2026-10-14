@@ -252,14 +252,6 @@
       "css": ".ds-recipe-card { background: #F7F2E9; color: #2B2118; border-radius: 4px; box-shadow: 0 3px 10px rgba(36,23,16,0.32); padding: 14px 16px; font-family: system-ui, sans-serif; } .ds-card-title { font-family: 'Zilla Slab', serif; font-weight: 600; font-size: 19px; margin: 0; } .ds-card-date { font-size: 10.5px; letter-spacing: 1.2px; color: #6E6252; margin: 3px 0 0; } .ds-lineage { font-family: 'Caveat', cursive; font-size: 17px; color: #6E6252; margin: 4px 0 0; } .ds-qrow { border-bottom: 1px solid #E2D8C4; padding: 6px 2px; font-family: 'Courier Prime', monospace; font-size: 14.5px; } .ds-yield { font-family: 'Courier Prime', monospace; font-weight: 700; font-size: 15.5px; margin-top: 12px; } .ds-target { font-size: 11.5px; letter-spacing: 0.5px; color: #6E6252; margin: 10px 0 4px; } .ds-slider-track { height: 4px; border-radius: 2px; background: #E2D8C4; position: relative; } .ds-slider-fill { position: absolute; inset: 0 66% 0 0; background: #6E6252; border-radius: 2px; } .ds-slider-knob { position: absolute; left: 34%; top: 50%; transform: translate(-50%,-50%); width: 16px; height: 16px; border-radius: 50%; background: #6E6252; }"
     },
     {
-      "name": "Variant Stamp",
-      "kind": "chip",
-      "refersTo": "variant-stamp",
-      "description": "Rotated red stamp marking a derivative recipe; red's first home.",
-      "html": "<div class=\"ds-card-stamped\"><h3 class=\"ds-card-title\">Egg-free butter cookies</h3><span class=\"ds-stamp\">VARIANT</span><p class=\"ds-lineage\">variant of Butter cookies</p></div>",
-      "css": ".ds-card-stamped { position: relative; background: #F7F2E9; border-radius: 4px; padding: 14px 16px; } .ds-card-stamped .ds-card-title { font-family: 'Zilla Slab', serif; font-weight: 600; font-size: 19px; margin: 0; padding-right: 96px; color: #2B2118; } .ds-stamp { position: absolute; top: 10px; right: 12px; transform: rotate(5deg); border: 2px solid #C03B2E; border-radius: 2px; color: #C03B2E; font-family: 'Zilla Slab', serif; font-weight: 600; font-size: 11px; letter-spacing: 2px; padding: 3px 8px; } .ds-lineage { font-family: 'Caveat', cursive; font-size: 17px; color: #6E6252; margin: 4px 0 0; }"
-    },
-    {
       "name": "Scale Slider (changed)",
       "kind": "input",
       "refersTo": "yield-line-changed",
@@ -270,7 +262,7 @@
   ],
   "narrative": {
     "northStar": "The Recipe Box",
-    "overview": "Every recipe is an index card in one family box. The app is a walnut card box holding cream stock: titles are typed in a workmanlike slab, quantities are measurement type, lineage is penciled in handwriting, and a derivative is an annotated copy \u2014 stamped VARIANT, never re-typed from scratch. The world lends warmth and material; it never supplies navigation or controls, which stay standard Material 3. Density is ruled-card density: hairline rules every row, one spacing rhythm, no ornaments between the baker and the next number. The aesthetic philosophy is precision without intimidation \u2014 pro-grade formula discipline served on home-kitchen card stock.",
+    "overview": "Every recipe is an index card in one family box. The app is a walnut card box holding cream stock: titles are typed in a workmanlike slab, quantities are measurement type, lineage is penciled in handwriting, and a derivative is an annotated copy \u2014 same card as any other, its lineage penciled in, never re-typed from scratch. The world lends warmth and material; it never supplies navigation or controls, which stay standard Material 3. Density is ruled-card density: hairline rules every row, one spacing rhythm, no ornaments between the baker and the next number. The aesthetic philosophy is precision without intimidation \u2014 pro-grade formula discipline served on home-kitchen card stock.",
     "keyCharacteristics": [
       "Walnut ground, cream card faces, one red reserved for meaning",
       "Quantities always in monospace measurement type, never decorative",
@@ -281,7 +273,7 @@
     "rules": [
       {
         "name": "The Red Reservation Rule",
-        "body": "Stamp red appears on exactly three things: the VARIANT stamp, a changed yield line, and the 2px lid rule. It never decorates. An idle slider is pencil on rule, not red.",
+        "body": "Stamp red appears only where it carries meaning: a changed yield line, the 2px lid rule, destructive confirms, and slider accents while scaled or dragged. It never decorates. An idle slider is pencil on rule, not red.",
         "section": "colors"
       },
       {
@@ -301,7 +293,7 @@
       }
     ],
     "dos": [
-      "Do keep stamp red for the VARIANT stamp, changed yields, and the lid rule \u2014 nothing else.",
+      "Do keep stamp red for changed yields, the lid rule, and destructive confirms \u2014 nothing else.",
       "Do set every quantity in Courier Prime with tabular alignment.",
       "Do render lineage (variant/parent relations) in Caveat pencil.",
       "Do let approximations stay visible: seeds are offered, never imposed.",

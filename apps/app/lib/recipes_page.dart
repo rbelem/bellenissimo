@@ -54,7 +54,7 @@ const _seedPrefixes = <String, String>{
   'egg-free-cookies': 'eggfree',
 };
 
-const _seedPieceNouns = <String, String>{'cookies': ' cookies', 'eggfree': ' cookies'};
+const _seedPieceNouns = <String, String>{'cookies': ' cookies'};
 
 /// Built-in mass-equivalence swaps derived from seed densities, plus the
 /// classic egg-free move. Users pick from these per row.
@@ -154,10 +154,13 @@ class _RecipesPageState extends State<RecipesPage> {
   Iterable<Widget> _familyLines(Recipe recipe) sync* {
     final parentId = recipe.parentId;
     if (parentId != null) {
-      yield Text(
-        'variant of ${_book.byId(parentId)!.name}',
-        style: boxAnnotation(context),
-      );
+      final parent = _book.byId(parentId);
+      if (parent != null) {
+        yield Text(
+          'variant of ${parent.name}',
+          style: boxAnnotation(context),
+        );
+      }
     }
     final id = recipe.id;
     if (id == null) return;
@@ -287,20 +290,32 @@ class _RecipesPageState extends State<RecipesPage> {
     );
   }
 
-  String _yieldText(Recipe scaled, String prefix) {
+  /// Piece noun for a count-yield card: the recipe's own seed noun, else
+  /// the nearest ancestor's, so a derivative of a cookies seed still
+  /// reads "cookies".
+  String _pieceNoun(Recipe recipe) {
+    var current = recipe;
+    while (true) {
+      final noun = _seedPieceNouns[_seedPrefixes[current.id] ?? current.id];
+      if (noun != null) return noun;
+      final parentId = current.parentId;
+      final parent = parentId == null ? null : _book.byId(parentId);
+      if (parent == null) return ' pieces';
+      current = parent;
+    }
+  }
+
+  String _yieldText(Recipe scaled, Recipe raw) {
     final count = scaled.yield.count;
     if (count != null) {
-      return 'Makes ${count.round()}${_seedPieceNouns[prefix] ?? ' pieces'}';
+      return 'Makes ${count.round()}${_pieceNoun(raw)}';
     }
     return 'Makes ${scaled.yield.totalGrams!.round()} g';
   }
 
-  String _targetText(String prefix, double target) =>
-      _isMassRecipe(prefix)
-          ? 'Target: ${target.round()} g'
-          : 'Target: ${target.round()}${_seedPieceNouns[prefix] ?? ' pieces'}';
-
-  bool _isMassRecipe(String prefix) => prefix == 'loaf';
+  String _targetText(Recipe raw, double target) => raw.yield.totalGrams != null
+      ? 'Target: ${target.round()} g'
+      : 'Target: ${target.round()}${_pieceNoun(raw)}';
 
   Widget _panSection(Recipe raw, String prefix, Duration baseBake) {
     final tokens = Theme.of(context).extension<BoxTokens>()!;
@@ -586,9 +601,9 @@ class _RecipesPageState extends State<RecipesPage> {
               Padding(
                 padding: const EdgeInsets.only(top: 12),
                 child: _rolling(
-                  _yieldText(scaled, prefix),
+                  _yieldText(scaled, raw),
                   Text(
-                    _yieldText(scaled, prefix),
+                    _yieldText(scaled, raw),
                     key: ValueKey('$prefix-yield'),
                     style: boxQuantity(context, size: 15.5).copyWith(
                       fontWeight: FontWeight.w700,
@@ -605,9 +620,9 @@ class _RecipesPageState extends State<RecipesPage> {
               Padding(
                 padding: const EdgeInsets.only(top: 10, bottom: 2),
                 child: _rolling(
-                  _targetText(prefix, target),
+                  _targetText(raw, target),
                   Text(
-                    _targetText(prefix, target),
+                    _targetText(raw, target),
                     key: ValueKey('$prefix-target'),
                     style: TextStyle(
                       fontSize: 11.5,
