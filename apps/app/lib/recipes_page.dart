@@ -2,6 +2,7 @@ import 'package:bellenissimos_core/core.dart';
 import 'package:flutter/material.dart';
 
 import 'editor/recipe_editor.dart';
+import 'export/box_dialog.dart';
 import 'import/recipe_import_dialog.dart';
 import 'persistence/recipe_store.dart';
 import 'recipe_card.dart';
@@ -197,6 +198,16 @@ class _RecipesPageState extends State<RecipesPage> {
             onPressed: () => setState(() {
               _massUnit = _massUnit == MassUnit.g ? MassUnit.oz : MassUnit.g;
             }),
+          ),
+          IconButton(
+            key: const ValueKey('box-actions'),
+            tooltip: 'Export or import the box',
+            icon: const Icon(Icons.import_export),
+            onPressed: () => showBoxDialog(
+              context,
+              _store,
+              onChanged: () => setState(_reload),
+            ),
           ),
           IconButton(
             key: const ValueKey('import-recipe'),
