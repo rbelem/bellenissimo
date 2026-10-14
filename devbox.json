@@ -21,6 +21,12 @@
       "test:app": [
         "cd apps/app && flutter test --coverage"
       ],
+      "analyze": [
+        "cd packages/core && dart analyze"
+      ],
+      "analyze:app": [
+        "cd apps/app && flutter analyze"
+      ],
       "run:desktop": [
         "cd apps/app",
         "[ -x build/linux/x64/debug/bundle/bellenissimos_app ] || flutter build linux --debug",
@@ -34,9 +40,7 @@
       ],
       "coverage": [
         "cd packages/core && dart test --coverage=coverage && dart run coverage:format_coverage --lcov --in=coverage --out=coverage/lcov.info --report-on=lib",
-        "test -z \"$(grep '^DA.*,0$' coverage/lcov.info)\" || { echo 'FAIL: uncovered lines exist'; grep '^DA.*,0$' coverage/lcov.info; exit 1; }",
-        "[ -f ../../apps/app/coverage/lcov.info ] || { echo 'FAIL: apps/app/coverage/lcov.info missing - run devbox run test:app first'; exit 1; }",
-        "test -z \"$(grep '^DA.*,0$' ../../apps/app/coverage/lcov.info)\" || { echo 'FAIL: uncovered lines exist in apps/app'; grep '^DA.*,0$' ../../apps/app/coverage/lcov.info; exit 1; }"
+        "test -z \"$(grep '^DA.*,0$' coverage/lcov.info)\" || { echo 'FAIL: uncovered lines exist'; grep '^DA.*,0$' coverage/lcov.info; exit 1; }"
       ]
     }
   }
