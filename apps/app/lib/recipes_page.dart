@@ -30,10 +30,10 @@ class _RecipesPageState extends State<RecipesPage> {
   final Map<String, Map<String, Substitution>> _subs = {};
   MassUnit _massUnit = MassUnit.g;
   String? _activeScale;
-  String _filter = '';
+  final ValueNotifier<String> _filter = ValueNotifier('');
 
-  List<Recipe> get _visibleRecipes {
-    final query = _filter.trim().toLowerCase();
+  List<Recipe> _visibleRecipes(String filter) {
+    final query = filter.trim().toLowerCase();
     if (query.isEmpty) return _recipes;
     return [
       for (final recipe in _recipes)
@@ -46,6 +46,12 @@ class _RecipesPageState extends State<RecipesPage> {
     super.initState();
     _store = widget.store ?? _fallbackStore;
     _reload();
+  }
+
+  @override
+  void dispose() {
+    _filter.dispose();
+    super.dispose();
   }
 
   void _reload() {
@@ -220,20 +226,26 @@ class _RecipesPageState extends State<RecipesPage> {
                 prefixIcon: Icon(Icons.search),
                 hintText: 'Find a recipe',
               ),
-              onChanged: (value) => setState(() => _filter = value),
+              onChanged: (value) => _filter.value = value,
             ),
           ),
           Expanded(
-            child: _visibleRecipes.isEmpty
-                ? Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Text(
-                      'No recipes match "${_filter.trim()}"',
-                      textAlign: TextAlign.center,
-                      style: boxAnnotation(context),
-                    ),
-                  )
-                : _recipeList(_visibleRecipes),
+            child: ValueListenableBuilder<String>(
+              valueListenable: _filter,
+              builder: (context, filter, _) {
+                final visible = _visibleRecipes(filter);
+                return visible.isEmpty
+                    ? Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Text(
+                          'No recipes match "${filter.trim()}"',
+                          textAlign: TextAlign.center,
+                          style: boxAnnotation(context),
+                        ),
+                      )
+                    : _recipeList(visible);
+              },
+            ),
           ),
         ],
       ),

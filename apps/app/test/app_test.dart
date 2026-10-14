@@ -215,5 +215,27 @@ void main() {
       expect(find.textContaining('No recipes match'), findsOneWidget);
       expect(find.text('Butter cookies'), findsNothing);
     });
+
+    testWidgets('a keystroke does not rebuild the page chrome', (tester) async {
+      await pumpApp(tester);
+      final toggleBefore =
+          tester.widget(find.byKey(const ValueKey('toggle-mass-unit')));
+      final filterBefore =
+          tester.widget(find.byKey(const ValueKey('recipe-filter')));
+      await tester.enterText(
+        find.byKey(const ValueKey('recipe-filter')),
+        'loaf',
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.widget(find.byKey(const ValueKey('toggle-mass-unit'))),
+        same(toggleBefore),
+      );
+      expect(
+        tester.widget(find.byKey(const ValueKey('recipe-filter'))),
+        same(filterBefore),
+      );
+    });
   });
 }
