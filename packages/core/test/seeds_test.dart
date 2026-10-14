@@ -31,6 +31,17 @@ void main() {
       expect(g, closeTo(50, 0.1));
     });
 
+    test('seed yeast converts a teaspoon to about 3 g', () {
+      final g = const Quantity(1, Unit.tsp)
+          .convertTo(Unit.g, ingredient: seedIngredients['yeast']!)
+          .amount;
+      expect(g, closeTo(3.0, 0.01));
+    });
+
+    test('seed yeast scales leavening sub-linearly', () {
+      expect(seedIngredients['yeast']!.scalingExponent, 0.7);
+    });
+
     test('every seed provides at least one conversion datum', () {
       for (final entry in seedIngredients.entries) {
         final ing = entry.value;

@@ -18,6 +18,10 @@ const seedIngredients = <String, Ingredient>{
   'butter': Ingredient('butter', gramsPerMl: 0.95),
   'cocoa': Ingredient('cocoa', gramsPerMl: 0.42),
   'salt': Ingredient('salt', gramsPerMl: 1.2),
+  // Yeast ramps slower than the batch: bakers add roughly 1.5-1.7x yeast
+  // when the flour doubles, and 2^0.7 ~= 1.62 sits mid-range. A 1/2-tsp
+  // jar measure converts cleanly at 0.6 g/ml (1 tsp ~= 3 g).
+  'yeast': Ingredient('yeast', gramsPerMl: 0.6, scalingExponent: 0.7),
   'egg': Ingredient('egg', gramsPerPiece: 50),
   'egg_yolk': Ingredient('egg_yolk', gramsPerPiece: 18),
   'egg_white': Ingredient('egg_white', gramsPerPiece: 30),
