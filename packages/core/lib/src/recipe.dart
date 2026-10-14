@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'blend.dart';
 import 'ingredient.dart';
 import 'quantity.dart';
+import 'recipe_tree.dart';
 
 /// How much a recipe makes, in user-meaningful dimensions.
 ///
@@ -64,6 +65,7 @@ class Recipe {
     required this.yield,
     required this.lines,
     this.blends = const [],
+    this.tree,
     this.id,
     this.parentId,
     this.steps = const [],
@@ -94,6 +96,40 @@ class Recipe {
   /// timestamps; both stay caller-set.
   final List<BlendLine> blends;
 
+  /// The component tree of a compound dish (a layered cake, a filled pie).
+  /// Null for a plain recipe; when set, [lines] and [blends] stay empty —
+  /// use [Recipe.compound] to build one. Ref snapshots stay untouched by
+  /// scaling (see [RecipeTree.scaledBy]); realization is the caller's
+  /// single [scaledBy] pass per ref.
+  final RecipeTree? tree;
+
+  /// True when this recipe's content is a [RecipeTree] rather than lines.
+  bool get isCompound => tree != null;
+
+  /// A compound dish whose content is [tree]; lines and blends stay empty.
+  factory Recipe.compound({
+    required String name,
+    required YieldSpec yield,
+    required RecipeTree tree,
+    String? id,
+    String? parentId,
+    List<String> steps = const [],
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) =>
+      Recipe(
+        name: name,
+        yield: yield,
+        lines: const [],
+        blends: const [],
+        tree: tree,
+        id: id,
+        parentId: parentId,
+        steps: steps,
+        createdAt: createdAt,
+        updatedAt: updatedAt,
+      );
+
   /// Returns a copy with the given fields replaced and everything else
   /// preserved. Use this for derivatives and edits — never mutate lists.
   Recipe copyWith({
@@ -101,6 +137,7 @@ class Recipe {
     YieldSpec? yield,
     List<RecipeLine>? lines,
     List<BlendLine>? blends,
+    RecipeTree? tree,
     String? id,
     String? parentId,
     List<String>? steps,
@@ -112,6 +149,7 @@ class Recipe {
         yield: yield ?? this.yield,
         lines: lines ?? this.lines,
         blends: blends ?? this.blends,
+        tree: tree ?? this.tree,
         id: id ?? this.id,
         parentId: parentId ?? this.parentId,
         steps: steps ?? this.steps,
@@ -141,7 +179,8 @@ class Recipe {
 
   /// Returns the recipe scaled by [factor]. Yield dimensions scale too;
   /// rounding steps and scaling exponents on ingredients are applied
-  /// per line, exactly once.
+  /// per line, exactly once. A compound's tree scales with the recipe:
+  /// ref factors accumulate, snapshots stay untouched.
   Recipe scaledBy(num factor) => Recipe(
         name: name,
         yield: YieldSpec(
@@ -151,6 +190,7 @@ class Recipe {
         ),
         lines: [for (final line in lines) line.scaledBy(factor)],
         blends: [for (final line in blends) line.scaledBy(factor)],
+        tree: tree?.scaledBy(factor),
       );
 
   /// Returns a copy where every blend line whose blend has [blendId]

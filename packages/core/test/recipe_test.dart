@@ -130,4 +130,84 @@ void main() {
       expect(line.scaledBy(4).quantity.amount, 26.5);
     });
   });
+
+  group('compound recipes', () {
+    final batter = Recipe(
+      id: 'batter',
+      name: 'batter',
+      yield: const YieldSpec(count: 1),
+      lines: [
+        const RecipeLine(Ingredient('flour', gramsPerMl: 0.5), Quantity(250, Unit.g)),
+        RecipeLine(eggsSnapped, const Quantity(1, Unit.piece)),
+      ],
+    );
+
+    test('a compound recipe holds empty lines and blends and isCompound', () {
+      final created = DateTime(2026, 10, 14);
+      final cake = Recipe.compound(
+        id: 'cake',
+        name: 'layer cake',
+        yield: const YieldSpec(count: 1, totalGrams: 800),
+        tree: RecipeTree(name: 'layer cake', components: [
+          ComponentRef(batter, factor: 2.0),
+        ]),
+        steps: const ['bake', 'stack'],
+        createdAt: created,
+        updatedAt: created,
+      );
+
+      expect(cake.isCompound, isTrue);
+      expect(cake.id, 'cake');
+      expect(cake.steps, ['bake', 'stack']);
+      expect(cake.createdAt, created);
+      expect(cake.updatedAt, created);
+      expect(cake.lines, isEmpty);
+      expect(cake.blends, isEmpty);
+      expect((cake.tree!.components.single as ComponentRef).recipe, same(batter));
+    });
+
+    test('a plain recipe is not compound', () {
+      expect(cookieRecipe.isCompound, isFalse);
+      expect(cookieRecipe.tree, isNull);
+    });
+
+    test('scaling a compound scales yield, accumulates ref factors and snaps a part exactly once', () {
+      final cake = Recipe.compound(
+        name: 'layer cake',
+        yield: const YieldSpec(count: 1, totalGrams: 800),
+        tree: RecipeTree(name: 'layer cake', components: [
+          ComponentRef(batter, factor: 1.0),
+        ]),
+      );
+
+      final small = cake.scaledBy(0.6);
+
+      expect(small.yield.count, closeTo(0.6, 1e-9));
+      expect(small.yield.totalGrams, closeTo(480, 1e-9));
+      expect(small.lines, isEmpty);
+      final ref = small.tree!.components.single as ComponentRef;
+      expect(ref.factor, closeTo(0.6, 1e-9));
+      expect(ref.recipe, same(batter));
+      final effective = ref.recipe.scaledBy(ref.factor);
+      expect(effective.lines[0].quantity.amount, closeTo(150, 1e-9));
+      expect(effective.lines[1].quantity.amount, 0.5);
+    });
+
+    test('scaling a compound scales leaf components too', () {
+      final cake = Recipe.compound(
+        name: 'torte',
+        yield: const YieldSpec(totalGrams: 900),
+        tree: RecipeTree(name: 'torte', components: [
+          const ComponentLeaf(
+            RecipeLine(Ingredient('sugar', gramsPerMl: 0.85), Quantity(100, Unit.g)),
+          ),
+        ]),
+      );
+
+      final scaled = cake.scaledBy(2);
+
+      final leaf = scaled.tree!.components.single as ComponentLeaf;
+      expect(leaf.line.quantity.amount, 200);
+    });
+  });
 }
