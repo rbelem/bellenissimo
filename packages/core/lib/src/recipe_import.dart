@@ -181,8 +181,37 @@ List<String> _parseSteps(Object? raw, List<ImportIssue> issues) {
   }
   final steps = <String>[];
   for (final item in raw) {
+    if (item is Map && _hasType(item, 'howtosection')) {
+      steps.addAll(_parseSection(item, issues));
+    } else {
+      final step = _parseStep(item, issues);
+      if (step != null) steps.add(step);
+    }
+  }
+  return steps;
+}
+
+/// Sections are flattened into the recipe's flat step list, each step
+/// prefixed with the section name; Recipe.steps has no grouped model.
+List<String> _parseSection(
+  Map<dynamic, dynamic> section,
+  List<ImportIssue> issues,
+) {
+  final name = section['name'];
+  final hasName = name is String && name.trim().isNotEmpty;
+  if (!hasName) {
+    issues.add(const ImportIssue('Instruction section missing name'));
+  }
+  final raw = section['itemListElement'];
+  if (raw is! List) {
+    issues.add(const ImportIssue('Instruction section missing steps'));
+    return const [];
+  }
+  final steps = <String>[];
+  for (final item in raw) {
     final step = _parseStep(item, issues);
-    if (step != null) steps.add(step);
+    if (step == null) continue;
+    steps.add(hasName ? '$name: $step' : step);
   }
   return steps;
 }
@@ -191,10 +220,6 @@ String? _parseStep(Object? item, List<ImportIssue> issues) {
   if (item is String) return item;
   if (item is! Map) {
     issues.add(const ImportIssue('Unsupported instruction shape'));
-    return null;
-  }
-  if (_hasType(item, 'howtosection')) {
-    issues.add(const ImportIssue('Instruction section not supported'));
     return null;
   }
   if (!_hasType(item, 'howtostep')) {

@@ -438,6 +438,93 @@ void main() {
       expect(result.issues, isEmpty);
     });
 
+    test('two HowToSections flatten to prefixed steps in order', () {
+      final result = importDoc({
+        'name': 'Cake',
+        'recipeYield': '1 cake',
+        'recipeIngredient': ['2 eggs'],
+        'recipeInstructions': [
+          {
+            '@type': 'HowToSection',
+            'name': 'Dough',
+            'itemListElement': [
+              {'@type': 'HowToStep', 'text': 'Mix the flour.'},
+              {'@type': 'HowToStep', 'text': 'Knead until smooth.'},
+            ],
+          },
+          {
+            '@type': 'HowToSection',
+            'name': 'Glaze',
+            'itemListElement': [
+              {'@type': 'HowToStep', 'text': 'Whisk the sugar.'},
+            ],
+          },
+        ],
+      });
+      expect(result.recipe!.steps, [
+        'Dough: Mix the flour.',
+        'Dough: Knead until smooth.',
+        'Glaze: Whisk the sugar.',
+      ]);
+      expect(result.issues, isEmpty);
+    });
+
+    test('mixed strings, HowToSteps, and sections keep document order', () {
+      final result = importDoc({
+        'name': 'Bread',
+        'recipeYield': '1 loaf',
+        'recipeIngredient': ['2 eggs'],
+        'recipeInstructions': [
+          'Preheat the oven.',
+          {
+            '@type': 'HowToSection',
+            'name': 'Dough',
+            'itemListElement': [
+              'Knead until smooth.',
+              {'@type': 'HowToStep', 'text': 'Rest for an hour.'},
+            ],
+          },
+          {'@type': 'HowToStep', 'text': 'Shape the loaf.'},
+        ],
+      });
+      expect(result.recipe!.steps, [
+        'Preheat the oven.',
+        'Dough: Knead until smooth.',
+        'Dough: Rest for an hour.',
+        'Shape the loaf.',
+      ]);
+      expect(result.issues, isEmpty);
+    });
+
+    test('malformed sections add issues and keep salvageable steps', () {
+      final result = importDoc({
+        'name': 'Bread',
+        'recipeYield': '1 loaf',
+        'recipeIngredient': ['2 eggs'],
+        'recipeInstructions': [
+          'Preheat the oven.',
+          {
+            '@type': 'HowToSection',
+            'name': '   ',
+            'itemListElement': [
+              {'@type': 'HowToStep', 'text': 'Knead until smooth.'},
+            ],
+          },
+          {'@type': 'HowToSection', 'name': 'Glaze'},
+          {'@type': 'HowToStep', 'text': 'Bake.'},
+        ],
+      });
+      expect(result.recipe!.steps, [
+        'Preheat the oven.',
+        'Knead until smooth.',
+        'Bake.',
+      ]);
+      final messages = result.issues.map((issue) => issue.message);
+      expect(messages, hasLength(2));
+      expect(messages, contains(contains('section missing name')));
+      expect(messages, contains(contains('section missing steps')));
+    });
+
     test('mixed list keeps supported shapes in order and reports two issues', () {
       final result = importDoc({
         'name': 'Cake',
@@ -457,7 +544,7 @@ void main() {
       );
       final messages = result.issues.map((issue) => issue.message);
       expect(messages, hasLength(2));
-      expect(messages, contains(contains('section not supported')));
+      expect(messages, contains(contains('section missing steps')));
       expect(messages, contains(contains('instruction shape')));
     });
 
