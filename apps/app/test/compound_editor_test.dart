@@ -382,4 +382,39 @@ void main() {
     expect(ref.recipe.id, 'sandwich-loaf');
     expect(ref.factor, 0.75);
   });
+
+  testWidgets('editing a stored compound opens the compound editor', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1170, 12000);
+    tester.view.devicePixelRatio = 3.0;
+    addTearDown(tester.view.reset);
+    store = RecipeStore.inMemory()..ensureSeeded(seedRecipes);
+    store.upsert(editableDish());
+    popped = null;
+    await tester.pumpWidget(app.BellenissimosApp(store: store));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('menu-torte')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('menu-edit-torte')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Compound dish'), findsOneWidget);
+    expect(
+      tester
+          .widget<TextField>(find.byKey(const ValueKey('editor-name')))
+          .controller!
+          .text,
+      'Torte',
+    );
+    expect(pickText(tester, 0), 'Sponge');
+    expect(
+      tester
+          .widget<TextField>(find.byKey(const ValueKey('editor-comp-0-factor')))
+          .controller!
+          .text,
+      '0.75',
+    );
+  });
 }
