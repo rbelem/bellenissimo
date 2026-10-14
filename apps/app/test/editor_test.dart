@@ -39,6 +39,8 @@ void main() {
     await pumpApp(tester);
     await tester.tap(find.byKey(const ValueKey('add-recipe')));
     await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('add-choice-recipe')));
+    await tester.pumpAndSettle();
 
     await tester.enterText(
       find.byKey(const ValueKey('editor-name')),
@@ -205,6 +207,8 @@ void main() {
     await pumpApp(tester);
     await tester.tap(find.byKey(const ValueKey('add-recipe')));
     await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('add-choice-recipe')));
+    await tester.pumpAndSettle();
 
     await tester.tap(find.byKey(const ValueKey('editor-save')));
     await tester.pumpAndSettle();
@@ -220,6 +224,8 @@ void main() {
   testWidgets('adds an ingredient line through the editor', (tester) async {
     await pumpApp(tester);
     await tester.tap(find.byKey(const ValueKey('add-recipe')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('add-choice-recipe')));
     await tester.pumpAndSettle();
 
     await tester.tap(find.byKey(const ValueKey('editor-add-line')));
@@ -277,6 +283,8 @@ void main() {
     await pumpApp(tester);
     await tester.tap(find.byKey(const ValueKey('add-recipe')));
     await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('add-choice-recipe')));
+    await tester.pumpAndSettle();
     await tester.enterText(
       find.byKey(const ValueKey('editor-name')),
       'Ghost cake',
@@ -293,6 +301,8 @@ void main() {
   testWidgets('switches a line unit to millilitres', (tester) async {
     await pumpApp(tester);
     await tester.tap(find.byKey(const ValueKey('add-recipe')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('add-choice-recipe')));
     await tester.pumpAndSettle();
 
     await tester.enterText(

@@ -1,6 +1,7 @@
 import 'package:bellenissimos_core/core.dart';
 import 'package:flutter/material.dart';
 
+import 'editor/blend_editor.dart';
 import 'editor/recipe_editor.dart';
 import 'export/box_dialog.dart';
 import 'import/recipe_import_dialog.dart';
@@ -96,6 +97,132 @@ class _RecipesPageState extends State<RecipesPage> {
   Future<void> _addRecipe() async {
     final saved = await showRecipeEditor(context, _store);
     if (saved != null) setState(_reload);
+  }
+
+  /// The one add affordance opens a chooser: recipes stay the primary
+  /// creation flow, blends file in behind them.
+  Future<void> _add() async {
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              key: const ValueKey('add-choice-recipe'),
+              leading: const Icon(Icons.restaurant),
+              title: const Text('Recipe'),
+              onTap: () => Navigator.of(context).pop('recipe'),
+            ),
+            ListTile(
+              key: const ValueKey('add-choice-sweetener'),
+              leading: const Icon(Icons.emoji_food_beverage),
+              title: const Text('Sweetener blend'),
+              onTap: () => Navigator.of(context).pop('sweetener'),
+            ),
+            ListTile(
+              key: const ValueKey('add-choice-flour'),
+              leading: const Icon(Icons.grain),
+              title: const Text('Flour mix'),
+              onTap: () => Navigator.of(context).pop('flour'),
+            ),
+          ],
+        ),
+      ),
+    );
+    switch (choice) {
+      case 'recipe':
+        await _addRecipe();
+      case 'sweetener':
+        await _editBlend(null, BlendKind.sweetener);
+      case 'flour':
+        await _editBlend(null, BlendKind.flour);
+    }
+  }
+
+  Future<void> _editBlend(BlendRecord? record, BlendKind kind) async {
+    final saved = await showBlendEditor(
+      context,
+      _blendStore,
+      kind: kind,
+      record: record,
+    );
+    if (saved != null) setState(_reload);
+  }
+
+  void _blendMenu(BlendRecord record) {
+    final id = record.blend.id!;
+    showModalBottomSheet<void>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              key: ValueKey('menu-edit-$id'),
+              leading: const Icon(Icons.edit_outlined),
+              title: Text('Edit ${record.blend.name}'),
+              onTap: () {
+                Navigator.of(context).pop();
+                _editBlend(
+                  record,
+                  record.blend is SweetenerBlend
+                      ? BlendKind.sweetener
+                      : BlendKind.flour,
+                );
+              },
+            ),
+            ListTile(
+              key: ValueKey('menu-delete-$id'),
+              leading: const Icon(Icons.delete_outline),
+              title: Text('Delete ${record.blend.name}'),
+              onTap: () {
+                Navigator.of(context).pop();
+                _deleteBlend(record);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Deleting a blend removes the library row only: attached recipes
+  /// keep rendering their own copy, so no attachment can dangle.
+  Future<void> _deleteBlend(BlendRecord record) async {
+    final id = record.blend.id;
+    final usedIn = [
+      for (final recipe in _recipes)
+        if (id != null && recipe.blends.any((line) => line.blend.id == id))
+          recipe.name,
+    ];
+    if (!mounted) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Delete ${record.blend.name}?'),
+        content: usedIn.isEmpty
+            ? null
+            : Text('Used in ${usedIn.join(', ')} — delete anyway?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Keep'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: TextButton.styleFrom(
+              foregroundColor: Theme.of(context).extension<BoxTokens>()!.accent,
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed ?? false) {
+      _blendStore.delete(id!);
+      setState(_reload);
+    }
   }
 
   Future<void> _importRecipe() async {
@@ -252,7 +379,7 @@ class _RecipesPageState extends State<RecipesPage> {
       ),
       floatingActionButton: FloatingActionButton(
         key: const ValueKey('add-recipe'),
-        onPressed: _addRecipe,
+        onPressed: _add,
         child: const Icon(Icons.add),
       ),
       body: Column(
@@ -313,6 +440,7 @@ class _RecipesPageState extends State<RecipesPage> {
             record: item,
             massUnit: _massUnit,
             activeScale: _activeScale,
+            onMenu: () => _blendMenu(item),
           ),
           _ => Padding(
             padding: const EdgeInsets.only(left: 4),

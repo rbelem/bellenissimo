@@ -16,6 +16,7 @@ class BlendCard extends StatefulWidget {
     required this.record,
     required this.massUnit,
     required this.activeScale,
+    required this.onMenu,
   });
 
   final BlendRecord record;
@@ -25,6 +26,8 @@ class BlendCard extends StatefulWidget {
   /// Scale prefix of the card being dragged, if any; blend cards dim
   /// whenever any recipe slider drags.
   final String? activeScale;
+
+  final VoidCallback onMenu;
 
   @override
   State<BlendCard> createState() => _BlendCardState();
@@ -94,9 +97,22 @@ class _BlendCardState extends State<BlendCard> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Padding(
-                padding: const EdgeInsets.only(left: 8, top: 8),
-                child: Text(blend.name, style: boxTitle(context)),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.only(left: 8, top: 8),
+                      child: Text(blend.name, style: boxTitle(context)),
+                    ),
+                  ),
+                  IconButton(
+                    key: ValueKey('menu-$_id'),
+                    icon: const Icon(Icons.more_vert, size: 20),
+                    tooltip: '${blend.name} actions',
+                    onPressed: widget.onMenu,
+                  ),
+                ],
               ),
               if (dated != null)
                 Padding(
