@@ -27,6 +27,9 @@ void main() {
   late RecipeStore store;
 
   Future<void> pumpApp(WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1170, 12000);
+    tester.view.devicePixelRatio = 3.0;
+    addTearDown(tester.view.reset);
     store = RecipeStore.inMemory()..ensureSeeded(seedRecipes);
     await tester.pumpWidget(app.BellenissimosApp(store: store));
     await tester.pumpAndSettle();
@@ -63,6 +66,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Chocolate cake'), findsOneWidget);
+    expect(find.text('Target: 400 g'), findsOneWidget);
     final saved = byId(store, 'chocolate-cake')!;
     expect(yieldOf(saved).totalGrams, 400);
     expect(yieldOf(saved).count, isNull);
@@ -106,7 +110,7 @@ void main() {
     expect(edited.updatedAt, isNot(updatedAtBefore));
   });
 
-  testWidgets('derives a stamped variant from a card menu', (tester) async {
+  testWidgets('derives a variant from a card menu', (tester) async {
     await pumpApp(tester);
     await tester.tap(find.byKey(const ValueKey('menu-butter-cookies')));
     await tester.pumpAndSettle();
@@ -130,7 +134,45 @@ void main() {
     expect(variant.lines[1].ingredient.id, 'walnut');
     expect(find.text('Nutty cookies'), findsOneWidget);
     expect(find.text('variant of Butter cookies'), findsNWidgets(2));
-    expect(find.text('VARIANT'), findsNWidgets(2));
+    expect(find.text('VARIANT'), findsNothing);
+    expect(find.text('Makes 24 cookies'), findsNWidgets(3));
+    expect(find.text('Makes 24 pieces'), findsNothing);
+  });
+
+  testWidgets('deleting a parent leaves its variants renderable',
+      (tester) async {
+    await pumpApp(tester);
+    await tester.tap(find.byKey(const ValueKey('menu-butter-cookies')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('menu-delete-butter-cookies')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Delete'));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(byId(store, 'butter-cookies'), isNull);
+    expect(find.text('Egg-free butter cookies'), findsOneWidget);
+    expect(find.text('variant of Butter cookies'), findsNothing);
+  });
+
+  testWidgets('a variant can itself spawn a variant', (tester) async {
+    await pumpApp(tester);
+    await tester.tap(find.byKey(const ValueKey('menu-egg-free-cookies')));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('menu-variant-egg-free-cookies')),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const ValueKey('editor-name')),
+      'Fudgy cookies',
+    );
+    await tester.tap(find.byKey(const ValueKey('editor-save')));
+    await tester.pumpAndSettle();
+
+    expect(byId(store, 'fudgy-cookies')!.parentId, 'egg-free-cookies');
+    expect(find.text('variant of Egg-free butter cookies'), findsOneWidget);
   });
 
   testWidgets('deletes a recipe after confirmation', (tester) async {

@@ -104,15 +104,6 @@ TextStyle boxAnnotation(BuildContext context, {double size = 17}) => TextStyle(
   height: 1.25,
 );
 
-/// Rubber-stamp voice: the VARIANT mark and nothing else.
-TextStyle boxStamp(BuildContext context) => TextStyle(
-  fontFamily: _titleFamily,
-  fontWeight: FontWeight.w600,
-  fontSize: 11,
-  letterSpacing: 2,
-  color: Theme.of(context).extension<BoxTokens>()!.accent,
-);
-
 ThemeData _boxTheme(Brightness brightness, BoxTokens tokens) {
   final scheme = ColorScheme(
     brightness: brightness,

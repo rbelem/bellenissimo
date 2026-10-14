@@ -154,10 +154,13 @@ class _RecipesPageState extends State<RecipesPage> {
   Iterable<Widget> _familyLines(Recipe recipe) sync* {
     final parentId = recipe.parentId;
     if (parentId != null) {
-      yield Text(
-        'variant of ${_book.byId(parentId)!.name}',
-        style: boxAnnotation(context),
-      );
+      final parent = _book.byId(parentId);
+      if (parent != null) {
+        yield Text(
+          'variant of ${parent.name}',
+          style: boxAnnotation(context),
+        );
+      }
     }
     final id = recipe.id;
     if (id == null) return;
@@ -287,20 +290,32 @@ class _RecipesPageState extends State<RecipesPage> {
     );
   }
 
-  String _yieldText(Recipe scaled, String prefix) {
+  /// Piece noun for a count-yield card: the recipe's own seed noun, else
+  /// the nearest ancestor's, so a derivative of a cookies seed still
+  /// reads "cookies".
+  String _pieceNoun(Recipe recipe) {
+    var current = recipe;
+    while (true) {
+      final noun = _seedPieceNouns[_seedPrefixes[current.id] ?? current.id];
+      if (noun != null) return noun;
+      final parentId = current.parentId;
+      final parent = parentId == null ? null : _book.byId(parentId);
+      if (parent == null) return ' pieces';
+      current = parent;
+    }
+  }
+
+  String _yieldText(Recipe scaled, Recipe raw) {
     final count = scaled.yield.count;
     if (count != null) {
-      return 'Makes ${count.round()}${_seedPieceNouns[prefix] ?? ' pieces'}';
+      return 'Makes ${count.round()}${_pieceNoun(raw)}';
     }
     return 'Makes ${scaled.yield.totalGrams!.round()} g';
   }
 
-  String _targetText(String prefix, double target) =>
-      _isMassRecipe(prefix)
-          ? 'Target: ${target.round()} g'
-          : 'Target: ${target.round()}${_seedPieceNouns[prefix] ?? ' pieces'}';
-
-  bool _isMassRecipe(String prefix) => prefix == 'loaf';
+  String _targetText(Recipe raw, double target) => raw.yield.totalGrams != null
+      ? 'Target: ${target.round()} g'
+      : 'Target: ${target.round()}${_pieceNoun(raw)}';
 
   Widget _panSection(Recipe raw, String prefix, Duration baseBake) {
     final tokens = Theme.of(context).extension<BoxTokens>()!;
@@ -431,16 +446,15 @@ class _RecipesPageState extends State<RecipesPage> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (raw.parentId == null)
-              ListTile(
-                key: ValueKey('menu-variant-${raw.id}'),
-                leading: const Icon(Icons.call_split),
-                title: Text('Save a variant of ${raw.name}'),
-                onTap: () {
-                  Navigator.of(context).pop();
-                  _newVariant(raw);
-                },
-              ),
+            ListTile(
+              key: ValueKey('menu-variant-${raw.id}'),
+              leading: const Icon(Icons.call_split),
+              title: Text('Save a variant of ${raw.name}'),
+              onTap: () {
+                Navigator.of(context).pop();
+                _newVariant(raw);
+              },
+            ),
             ListTile(
               key: ValueKey('menu-edit-${raw.id}'),
               leading: const Icon(Icons.edit_outlined),
@@ -557,24 +571,6 @@ class _RecipesPageState extends State<RecipesPage> {
                       child: Text(raw.name, style: boxTitle(context)),
                     ),
                   ),
-                  if (raw.parentId != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 6, right: 4),
-                      child: Transform.rotate(
-                        angle: 0.09,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 3,
-                          ),
-                          decoration: BoxDecoration(
-                            border: Border.all(color: tokens.accent, width: 2),
-                            borderRadius: BorderRadius.circular(2),
-                          ),
-                          child: Text('VARIANT', style: boxStamp(context)),
-                        ),
-                      ),
-                    ),
                   IconButton(
                     key: ValueKey('menu-${raw.id}'),
                     icon: const Icon(Icons.more_vert, size: 20),
@@ -600,71 +596,69 @@ class _RecipesPageState extends State<RecipesPage> {
                   ),
                 ),
               ..._familyLines(raw),
-              if (raw.parentId == null) ...[
-                const SizedBox(height: 8),
-                ..._lines(scaled, prefix, _subs[prefix] ?? const {}),
-                Padding(
-                  padding: const EdgeInsets.only(top: 12),
-                  child: _rolling(
-                    _yieldText(scaled, prefix),
-                    Text(
-                      _yieldText(scaled, prefix),
-                      key: ValueKey('$prefix-yield'),
-                      style: boxQuantity(context, size: 15.5).copyWith(
-                        fontWeight: FontWeight.w700,
-                        color: isScaled ? tokens.accent : tokens.onCard,
-                        decoration: isScaled
-                            ? TextDecoration.underline
-                            : TextDecoration.none,
-                        decorationColor: tokens.accent,
-                        decorationThickness: 2,
-                      ),
+              const SizedBox(height: 8),
+              ..._lines(scaled, prefix, _subs[prefix] ?? const {}),
+              Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: _rolling(
+                  _yieldText(scaled, raw),
+                  Text(
+                    _yieldText(scaled, raw),
+                    key: ValueKey('$prefix-yield'),
+                    style: boxQuantity(context, size: 15.5).copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: isScaled ? tokens.accent : tokens.onCard,
+                      decoration: isScaled
+                          ? TextDecoration.underline
+                          : TextDecoration.none,
+                      decorationColor: tokens.accent,
+                      decorationThickness: 2,
                     ),
                   ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.only(top: 10, bottom: 2),
-                  child: _rolling(
-                    _targetText(prefix, target),
-                    Text(
-                      _targetText(prefix, target),
-                      key: ValueKey('$prefix-target'),
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        letterSpacing: 0.5,
-                        color: tokens.pencil,
-                      ),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(top: 10, bottom: 2),
+                child: _rolling(
+                  _targetText(raw, target),
+                  Text(
+                    _targetText(raw, target),
+                    key: ValueKey('$prefix-target'),
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      letterSpacing: 0.5,
+                      color: tokens.pencil,
                     ),
                   ),
                 ),
-                SliderTheme(
-                  data: SliderTheme.of(context).copyWith(
-                    activeTrackColor:
-                        isScaled || _activeScale == prefix
-                            ? tokens.accent
-                            : tokens.rule,
-                    thumbColor: isScaled || _activeScale == prefix
-                        ? tokens.accent
-                        : tokens.pencil,
-                  ),
-                  child: Semantics(
-                    label: 'Scale ${raw.name} yield',
-                    child: Slider(
-                      key: ValueKey('$prefix-slider'),
-                      value: target,
-                      min: scaleLo,
-                      max: scaleHi,
-                      onChanged: (value) =>
-                          setState(() => _targets[raw.id!] = value),
-                      onChangeStart: (_) =>
-                          setState(() => _activeScale = prefix),
-                      onChangeEnd: (_) => setState(() => _activeScale = null),
-                    ),
+              ),
+              SliderTheme(
+                data: SliderTheme.of(context).copyWith(
+                  activeTrackColor:
+                      isScaled || _activeScale == prefix
+                          ? tokens.accent
+                          : tokens.rule,
+                  thumbColor: isScaled || _activeScale == prefix
+                      ? tokens.accent
+                      : tokens.pencil,
+                ),
+                child: Semantics(
+                  label: 'Scale ${raw.name} yield',
+                  child: Slider(
+                    key: ValueKey('$prefix-slider'),
+                    value: target,
+                    min: scaleLo,
+                    max: scaleHi,
+                    onChanged: (value) =>
+                        setState(() => _targets[raw.id!] = value),
+                    onChangeStart: (_) =>
+                        setState(() => _activeScale = prefix),
+                    onChangeEnd: (_) => setState(() => _activeScale = null),
                   ),
                 ),
-                if (_baseBakeTime(raw) != null)
-                  _panSection(raw, prefix, _baseBakeTime(raw)!),
-              ],
+              ),
+              if (_baseBakeTime(raw) != null)
+                _panSection(raw, prefix, _baseBakeTime(raw)!),
               if (raw.steps.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.only(left: 8, top: 8),

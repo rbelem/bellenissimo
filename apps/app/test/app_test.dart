@@ -24,19 +24,35 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('renders both recipes with base amounts', (tester) async {
+  testWidgets('renders every recipe as a normal card', (tester) async {
     await pumpApp(tester);
     expect(find.text('Butter cookies'), findsOneWidget);
-    expect(find.text('Makes 24 cookies'), findsOneWidget);
-    expect(find.text('250 g flour'), findsOneWidget);
-    expect(find.text('200 g butter'), findsOneWidget);
-    expect(find.text('100 g sugar'), findsOneWidget);
+    expect(find.text('Makes 24 cookies'), findsNWidgets(2));
+    expect(find.text('250 g flour'), findsNWidgets(2));
+    expect(find.text('200 g butter'), findsNWidgets(2));
+    expect(find.text('100 g sugar'), findsNWidgets(2));
     expect(find.text('1 piece egg'), findsOneWidget);
+    expect(find.text('120 g applesauce'), findsOneWidget);
+    expect(find.text('VARIANT'), findsNothing);
     expect(find.text('Sandwich loaf'), findsOneWidget);
     expect(find.text('Makes 900 g'), findsOneWidget);
     expect(find.text('500 g flour'), findsOneWidget);
     expect(find.text('320 g water'), findsOneWidget);
     expect(find.text('10 g salt'), findsOneWidget);
+  });
+
+  testWidgets('an egg-free variant scales like a normal recipe', (
+    tester,
+  ) async {
+    await pumpApp(tester);
+    tester
+        .widget<Slider>(find.byKey(const ValueKey('eggfree-slider')))
+        .onChanged!(36);
+    await tester.pumpAndSettle();
+    expect(find.text('Target: 36 cookies'), findsOneWidget);
+    expect(find.text('Makes 36 cookies'), findsOneWidget);
+    expect(find.text('375 g flour'), findsOneWidget);
+    expect(find.text('variant of Butter cookies'), findsOneWidget);
   });
 
   testWidgets('cookies slider rescales lines and yield', (tester) async {
@@ -82,7 +98,7 @@ void main() {
       (tester.widget<ListTile>(find.byKey(flourLine)).title as Text).data,
       isNot(before),
     );
-    expect(find.text('250 g flour'), findsNothing);
+    expect(find.text('250 g flour'), findsOneWidget);
   });
 
   testWidgets('shows numbered steps, family lines and timestamps', (
