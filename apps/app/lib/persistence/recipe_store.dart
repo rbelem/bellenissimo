@@ -79,6 +79,12 @@ class RecipeStore {
 
   void upsert(Recipe recipe) {
     _load();
+    _write(recipe);
+    _propagate(recipe);
+    _flush();
+  }
+
+  void _write(Recipe recipe) {
     final encoded = RecipeCodec.encode(recipe);
     final index = _docs.indexWhere((doc) => doc['id'] == recipe.id);
     if (index == -1) {
@@ -86,7 +92,24 @@ class RecipeStore {
     } else {
       _docs[index] = encoded;
     }
-    _flush();
+  }
+
+  /// Every compound holding [recipe] as a ref inlines a snapshot by
+  /// value, so an edit here must rewrite each holder's doc. The walk
+  /// ([RecipeBook.replacingRecipe]) reuses non-holders by identity so
+  /// only changed docs re-encode, never touches timestamps, and a
+  /// recipe without an id can never be referenced.
+  void _propagate(Recipe recipe) {
+    final id = recipe.id;
+    if (id == null) return;
+    if (!_docs.any((doc) => doc['tree'] != null)) return;
+    final before = [for (final doc in _docs) RecipeCodec.decode(doc)];
+    final after = RecipeBook(before).replacingRecipe(id, recipe);
+    for (var i = 0; i < before.length; i++) {
+      if (!identical(before[i], after.recipes[i])) {
+        _docs[i] = RecipeCodec.encode(after.recipes[i]);
+      }
+    }
   }
 
   void delete(String id) {

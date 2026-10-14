@@ -152,6 +152,115 @@ void main() {
     });
   });
 
+  group('compound propagation', () {
+    List<Object?> idsOf(RecipeStore store) =>
+        [for (final recipe in store.all()) recipe.id];
+
+    Recipe batter({String name = 'Batter', double grams = 500}) => Recipe(
+      id: 'batter',
+      name: name,
+      yield: const YieldSpec(count: 1),
+      createdAt: DateTime(2026, 1, 1),
+      updatedAt: DateTime(2026, 1, 2),
+      lines: [
+        RecipeLine(
+          const Ingredient('flour', gramsPerMl: 0.6),
+          Quantity(grams, Unit.g),
+        ),
+      ],
+    );
+
+    Recipe cake() => Recipe.compound(
+      id: 'cake',
+      name: 'Cake',
+      yield: const YieldSpec(count: 1),
+      createdAt: DateTime(2026, 2, 1),
+      updatedAt: DateTime(2026, 2, 2),
+      tree: RecipeTree(
+        name: 'assembled cake',
+        components: [ComponentRef(batter(), factor: 2)],
+      ),
+    );
+
+    void seedWith(RecipeStore store) {
+      store.upsert(batter());
+      store.upsert(cake());
+    }
+
+    test('editing batter updates every compound holding it', () {
+      final store = RecipeStore.inMemory();
+      seedWith(store);
+
+      store.upsert(batter(name: 'Whole-wheat batter', grams: 600));
+
+      final ref =
+          store.byId('cake')!.tree!.components.single as ComponentRef;
+      expect(ref.recipe.name, 'Whole-wheat batter');
+      expect(ref.recipe.lines.single.quantity.amount, 600);
+      expect(ref.factor, 2);
+    });
+
+    test('propagation never bumps the holder timestamps', () {
+      final store = RecipeStore.inMemory();
+      seedWith(store);
+
+      store.upsert(batter(name: 'Whole-wheat batter'));
+
+      final cake = store.byId('cake')!;
+      expect(cake.createdAt, DateTime(2026, 2, 1));
+      expect(cake.updatedAt, DateTime(2026, 2, 2));
+    });
+
+    test('recipes that hold no ref stay untouched', () {
+      final store = RecipeStore.inMemory()..ensureSeeded(seedRecipes);
+      seedWith(store);
+      final before = RecipeCodec.encode(store.byId('butter-cookies')!);
+
+      store.upsert(batter(name: 'Whole-wheat batter'));
+
+      expect(RecipeCodec.encode(store.byId('butter-cookies')!), before);
+    });
+
+    test('upserting the compound itself does not double-write', () {
+      final store = RecipeStore.inMemory();
+      seedWith(store);
+
+      store.upsert(cake().copyWith(name: 'Cake v2'));
+
+      expect(idsOf(store), ['batter', 'cake']);
+      expect(store.byId('cake')!.name, 'Cake v2');
+    });
+
+    test('a null-id recipe never matches a ref snapshot', () {
+      final store = RecipeStore.inMemory();
+      final dash = Recipe(
+        name: 'Dash of salt',
+        yield: const YieldSpec(count: 1),
+        lines: [RecipeLine(const Ingredient('salt'), const Quantity(5, Unit.g))],
+      );
+      final cake = Recipe.compound(
+        id: 'cake',
+        name: 'Cake',
+        yield: const YieldSpec(count: 1),
+        tree: RecipeTree(
+          name: 'assembled cake',
+          components: [
+            ComponentRef(batter(), factor: 2),
+            ComponentRef(dash, factor: 1),
+          ],
+        ),
+      );
+      store.upsert(batter());
+      store.upsert(cake);
+
+      store.upsert(dash.copyWith(name: 'Fancy salt'));
+
+      expect(idsOf(store), ['batter', 'cake', null]);
+      final components = store.byId('cake')!.tree!.components;
+      expect((components[1] as ComponentRef).recipe.name, 'Dash of salt');
+    });
+  });
+
   group('file-backed RecipeStore', () {
     test('persists across opens and creates parent directories', () {
       final dir = Directory.systemTemp.createTempSync('bellenissimos-open-');
