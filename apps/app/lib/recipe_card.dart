@@ -1,6 +1,7 @@
 import 'package:bellenissimos_core/core.dart';
 import 'package:flutter/material.dart';
 
+import 'compound_math.dart';
 import 'rolling.dart';
 import 'theme.dart';
 
@@ -232,8 +233,12 @@ class RecipeCard extends StatelessWidget {
                 ),
               ..._familyLines(context, raw),
               const SizedBox(height: 8),
-              ..._lines(context, scaled, prefix),
-              ..._blendLines(context, scaled, prefix),
+              if (raw.isCompound)
+                ..._compoundSection(context, scaled, prefix)
+              else ...[
+                ..._lines(context, scaled, prefix),
+                ..._blendLines(context, scaled, prefix),
+              ],
               Padding(
                 padding: const EdgeInsets.only(top: 12),
                 child: rollIn(
@@ -468,6 +473,151 @@ class RecipeCard extends StatelessWidget {
       }
     }
     return parts;
+  }
+
+  /// Compound content between lineage and yield: part blocks in assembly
+  /// order, then the dish total — Courier 700, never red, because size
+  /// is a property of the card, not a change.
+  List<Widget> _compoundSection(
+    BuildContext context,
+    Recipe scaled,
+    String prefix,
+  ) {
+    final blocks = compoundBlocks(scaled.tree!);
+    final totalGrams = dishGrams(blocks);
+    return [
+      ..._partBlocks(context, blocks, prefix),
+      if (totalGrams != null)
+        Padding(
+          padding: const EdgeInsets.only(top: 12),
+          child: Text(
+            'Total ${quantityText(_displayGrams(totalGrams))}',
+            key: ValueKey('$prefix-total'),
+            style: boxQuantity(
+              context,
+              size: 15.5,
+            ).copyWith(fontWeight: FontWeight.w700),
+          ),
+        ),
+    ];
+  }
+
+  List<Widget> _partBlocks(
+    BuildContext context,
+    List<CompoundBlock> blocks,
+    String prefix,
+  ) => [
+    for (var b = 0; b < blocks.length; b++)
+      ..._partBlock(context, blocks[b], b, prefix),
+  ];
+
+  /// A part block: the Caveat label carrying the part recipe's name —
+  /// with the collapse count and a non-×1 factor penciled beside it —
+  /// over that part's ruled Courier lines.
+  List<Widget> _partBlock(
+    BuildContext context,
+    CompoundBlock block,
+    int b,
+    String prefix,
+  ) {
+    final part = block.recipe;
+    final rows = _blockRows(block);
+    return [
+      if (part != null)
+        Padding(
+          padding: const EdgeInsets.only(left: 8, top: 6),
+          child: Text(
+            _blockLabel(block),
+            key: ValueKey('$prefix-comp-$b-label'),
+            style: boxAnnotation(context, size: 16),
+          ),
+        ),
+      for (final row in rows)
+        rollIn(
+          context,
+          row.text,
+          _ruledRow(context, '$prefix-comp-$b-line-${row.key}', row.text),
+        ),
+    ];
+  }
+
+  String _blockLabel(CompoundBlock block) {
+    final name = block.recipe!.name;
+    final suffixes = [
+      if (block.count > 1) '× ${block.count}',
+      if (block.factor != 1 && block.factor != block.count)
+        '× ${_factorText(block.factor)}',
+    ];
+    return suffixes.isEmpty ? name : '$name ${suffixes.join(' · ')}';
+  }
+
+  String _factorText(double factor) =>
+      factor % 1 == 0 ? factor.round().toString() : '$factor';
+
+  ({String key, String text}) _leafRow(RecipeLine line) => (
+    key: line.ingredient.id,
+    text: '${quantityText(_displayQuantity(line))} ${line.ingredient.id}',
+  );
+
+  /// One rendering pass per ref (`scaledBy` exactly once, so a rounding
+  /// step applies with the full ref factor), summed per ingredient for
+  /// display only. Bare leaves ride through untouched.
+  List<({String key, String text})> _blockRows(CompoundBlock block) {
+    if (block.recipe == null) {
+      return [for (final line in block.leaves) _leafRow(line)];
+    }
+    final sums =
+        <String, ({Unit unit, double amount, Ingredient ingredient})>{};
+    for (final ref in block.refs) {
+      for (final line in ref.recipe.scaledBy(ref.factor).lines) {
+        final id = line.ingredient.id;
+        final prev = sums[id];
+        sums[id] = prev == null
+            ? (
+                unit: line.quantity.unit,
+                amount: line.quantity.amount,
+                ingredient: line.ingredient,
+              )
+            : (
+                unit: prev.unit,
+                amount: prev.amount + line.quantity.amount,
+                ingredient: prev.ingredient,
+              );
+      }
+    }
+    return [
+      for (final entry in sums.entries)
+        (key: entry.key, text: '${quantityText(_displaySum(entry.value))} ${entry.key}'),
+    ];
+  }
+
+  Quantity _displaySum(
+    ({Unit unit, double amount, Ingredient ingredient}) sum,
+  ) {
+    var quantity = Quantity(sum.amount, sum.unit);
+    if (massUnit == MassUnit.oz && sum.unit.kind == UnitKind.mass) {
+      quantity = quantity.convertTo(Unit.oz);
+    }
+    return quantity;
+  }
+
+  Widget _ruledRow(BuildContext context, String key, String text) {
+    final tokens = Theme.of(context).extension<BoxTokens>()!;
+    return Container(
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: tokens.rule)),
+      ),
+      child: Material(
+        type: MaterialType.transparency,
+        child: ListTile(
+          key: ValueKey(key),
+          dense: true,
+          visualDensity: VisualDensity.compact,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+          title: Text(text, style: boxQuantity(context)),
+        ),
+      ),
+    );
   }
 
   Quantity _displayQuantity(RecipeLine line) {
