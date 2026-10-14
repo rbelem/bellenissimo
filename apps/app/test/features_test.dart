@@ -24,6 +24,9 @@ void main() {
   late RecipeStore store;
 
   Future<void> pumpApp(WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1170, 12000);
+    tester.view.devicePixelRatio = 3.0;
+    addTearDown(tester.view.reset);
     store = RecipeStore.inMemory()..ensureSeeded(seedRecipes);
     await tester.pumpWidget(app.BellenissimosApp(store: store));
     await tester.pumpAndSettle();

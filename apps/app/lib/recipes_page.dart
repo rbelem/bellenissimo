@@ -134,6 +134,16 @@ class _RecipesPageState extends State<RecipesPage> {
   final Map<String, Map<String, Substitution>> _subs = {};
   _MassUnit _massUnit = _MassUnit.g;
   String? _activeScale;
+  String _filter = '';
+
+  List<Recipe> get _visibleRecipes {
+    final query = _filter.trim().toLowerCase();
+    if (query.isEmpty) return _recipes;
+    return [
+      for (final recipe in _recipes)
+        if (recipe.name.toLowerCase().contains(query)) recipe,
+    ];
+  }
 
   @override
   void initState() {
@@ -515,20 +525,51 @@ class _RecipesPageState extends State<RecipesPage> {
         onPressed: _addRecipe,
         child: const Icon(Icons.add),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(14, 16, 14, 32),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            for (var i = 0; i < _recipes.length; i++) ...[
-              if (i > 0) const SizedBox(height: 16),
-              _recipeCard(_recipes[i]),
-            ],
-          ],
-        ),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
+            child: TextField(
+              key: const ValueKey('recipe-filter'),
+              style: boxQuantity(context),
+              textInputAction: TextInputAction.search,
+              autocorrect: false,
+              enableSuggestions: false,
+              decoration: const InputDecoration(
+                prefixIcon: Icon(Icons.search),
+                hintText: 'Find a recipe',
+              ),
+              onChanged: (value) => setState(() => _filter = value),
+            ),
+          ),
+          Expanded(
+            child: _visibleRecipes.isEmpty
+                ? Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Text(
+                      'No recipes match "${_filter.trim()}"',
+                      textAlign: TextAlign.center,
+                      style: boxAnnotation(context),
+                    ),
+                  )
+                : _recipeList(_visibleRecipes),
+          ),
+        ],
       ),
     );
   }
+
+  Widget _recipeList(List<Recipe> visible) => ListView.builder(
+        padding: const EdgeInsets.fromLTRB(14, 16, 14, 32),
+        itemCount: visible.length,
+        itemBuilder: (context, index) => Padding(
+          key: ValueKey(visible[index].id),
+          padding: EdgeInsets.only(
+            bottom: index == visible.length - 1 ? 0 : 16,
+          ),
+          child: _recipeCard(visible[index]),
+        ),
+      );
 
   Widget _recipeCard(Recipe raw) {
     final tokens = Theme.of(context).extension<BoxTokens>()!;

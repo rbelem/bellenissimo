@@ -199,6 +199,12 @@ Card corners 4px — nearly square, like real index cards. Row separators are 1p
 - **Style:** app-bar text button reading the unit it switches TO ("oz" / "g")
 - **Effect:** mass quantities re-render in ounces (one decimal); volume and counts untouched
 
+### Recipe Filter
+- **Where:** pinned under the lid rule, above the card stack; it does not scroll away
+- **Style:** single-line TextField in Courier, search icon prefix, hint "Find a recipe"
+- **Behavior:** case-insensitive substring match on the recipe name, applied as you type; the list below builds lazily so a box of a thousand cards stays smooth
+- **Empty state:** pencil annotation "No recipes match …" when nothing matches
+
 ## Do's and Don'ts
 
 ### Do:
