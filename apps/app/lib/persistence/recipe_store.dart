@@ -94,7 +94,7 @@ class RecipeStore {
     }
   }
 
-  /// Every compound holding [recipe] as a ref inlines a snapshot by
+  /// Every recipe holding [recipe] as a ref inlines a snapshot by
   /// value, so an edit here must rewrite each holder's doc. The walk
   /// ([RecipeBook.replacingRecipe]) reuses non-holders by identity so
   /// only changed docs re-encode, never touches timestamps, and a
@@ -102,7 +102,7 @@ class RecipeStore {
   void _propagate(Recipe recipe) {
     final id = recipe.id;
     if (id == null) return;
-    if (!_docs.any((doc) => doc['tree'] != null)) return;
+    if (!_docs.any(_hasRefs)) return;
     final before = [for (final doc in _docs) RecipeCodec.decode(doc)];
     final after = RecipeBook(before).replacingRecipe(id, recipe);
     for (var i = 0; i < before.length; i++) {
@@ -110,6 +110,18 @@ class RecipeStore {
         _docs[i] = RecipeCodec.encode(after.recipes[i]);
       }
     }
+  }
+
+  /// True when the stored doc holds a recipe ref: a version-4 item
+  /// with a `ref` key, or a legacy tree doc.
+  bool _hasRefs(Map<String, Object?> doc) {
+    final items = doc['items'];
+    if (items != null) {
+      return (items as List<Object?>).any(
+        (item) => (item! as Map<String, Object?>).containsKey('ref'),
+      );
+    }
+    return doc['tree'] != null;
   }
 
   void delete(String id) {

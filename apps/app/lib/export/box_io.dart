@@ -6,10 +6,10 @@ import '../persistence/blend_codec.dart';
 import '../persistence/recipe_codec.dart';
 
 /// Version marker of the box document format. Bump on incompatible
-/// changes so old apps refuse newer files with a clear issue. Version 3
-/// added compound trees; versions 1 and 2 stay readable and simply
-/// carry no trees.
-const boxVersion = 3;
+/// changes so old apps refuse newer files with a clear issue. Version 4
+/// writes items as one ordered list; versions 1 through 3 stay readable
+/// and decode into items.
+const boxVersion = 4;
 
 /// What import does with recipes already in the store.
 enum BoxImportMode {
@@ -79,7 +79,7 @@ String encodeBox(List<Recipe> recipes, List<BlendRecord> blends) =>
   if (version is! int) {
     return (const [], const [], [BoxIssue('Missing box version marker')]);
   }
-  if (version != 1 && version != 2 && version != boxVersion) {
+  if (version != 1 && version != 2 && version != 3 && version != boxVersion) {
     return (
       const [],
       const [],
@@ -132,11 +132,11 @@ String encodeBox(List<Recipe> recipes, List<BlendRecord> blends) =>
 }
 
 /// Decodes every recipe entry. Top-level ids must be unique among
-/// entries, and an id claimed by a tree ref snapshot must carry the
+/// entries, and an id claimed by a ref snapshot must carry the
 /// same recipe wherever it reappears — snapshots carry origin ids so
 /// store propagation can match them, and two different recipes sharing
 /// one origin id would make that walk ambiguous. The same recipe beside
-/// its own snapshot is the normal export shape, since a compound
+/// its own snapshot is the normal export shape, since a recipe
 /// inlines its parts by value. The later conflicting entry is skipped
 /// with an issue; the first wins.
 List<Recipe> _parseRecipeEntries(
@@ -200,21 +200,19 @@ String? _clashOf(
   return null;
 }
 
-/// Every tree ref as (origin id, canonical doc), nested compounds
+/// Every ref snapshot as (origin id, canonical doc), nested refs
 /// included; a ref without an id never matches and cannot collide.
 List<(String?, String)> _refDocs(Recipe recipe) {
   final refs = <(String?, String)>[];
-  void walk(RecipeTree tree) {
-    for (final component in tree.components) {
-      if (component is! ComponentRef) continue;
-      refs.add((component.recipe.id, _canonical(component.recipe)));
-      final nested = component.recipe.tree;
-      if (nested != null) walk(nested);
+  void walk(List<RecipeItem> items) {
+    for (final item in items) {
+      if (item is! ComponentRef) continue;
+      refs.add((item.recipe.id, _canonical(item.recipe)));
+      walk(item.recipe.items);
     }
   }
 
-  final tree = recipe.tree;
-  if (tree != null) walk(tree);
+  walk(recipe.items);
   return refs;
 }
 

@@ -8,12 +8,11 @@ import 'blend_codec.dart';
 ///
 /// Ingredients are stored with their conversion data inline so a recipe
 /// stays self-contained; [seedIngredients] stay the canonical source for
-/// new entry, not for storage. Attached blends ride the recipe by
-/// value: each [BlendLine] serializes its full blend, so a recipe is
-/// readable without the blend library. A compound's tree rides the
-/// recipe the same way: component recipes serialize inline by value,
-/// so a compound imports and reads without its parts and deleting a
-/// part cannot dangle a ref.
+/// new entry, not for storage. Items ride the recipe doc in order:
+/// ingredient lines, blend uses, and recipe refs all serialize by value,
+/// so a recipe imports and reads without its parts and deleting a part
+/// cannot dangle a ref. Docs written before the union (version 3 and
+/// older, with `lines`, `blends`, and `tree`) still decode.
 abstract final class RecipeCodec {
   static Map<String, Object?> encode(Recipe recipe) => {
     'id': recipe.id,
@@ -26,9 +25,7 @@ abstract final class RecipeCodec {
     'createdAt': recipe.createdAt?.millisecondsSinceEpoch,
     'updatedAt': recipe.updatedAt?.millisecondsSinceEpoch,
     'steps': recipe.steps,
-    'lines': [for (final line in recipe.lines) _lineDoc(line)],
-    'blends': [for (final line in recipe.blends) BlendCodec.encodeLine(line)],
-    if (recipe.tree != null) 'tree': _treeDoc(recipe.tree!),
+    'items': [for (final item in recipe.items) _itemDoc(item)],
   };
 
   static Recipe decode(Map<String, Object?> doc) {
@@ -45,6 +42,29 @@ abstract final class RecipeCodec {
     final steps = [
       for (final step in doc['steps']! as List<Object?>) step! as String,
     ];
+    final rawItems = doc['items'];
+    final items = rawItems == null
+        ? _legacyItems(doc)
+        : [
+            for (final itemDoc in rawItems as List<Object?>)
+              _item(itemDoc! as Map<String, Object?>),
+          ];
+    return Recipe(
+      id: id,
+      name: name,
+      parentId: parentId,
+      yield: yield,
+      createdAt: createdAt,
+      updatedAt: updatedAt,
+      steps: steps,
+      items: items,
+    );
+  }
+
+  /// Items of a pre-union doc: `lines` then `blends`, then the tree's
+  /// components in order. A tree beside non-empty lines or blends stays
+  /// corrupt and throws, as before.
+  static List<RecipeItem> _legacyItems(Map<String, Object?> doc) {
     final lines = [
       for (final lineDoc in doc['lines']! as List<Object?>)
         _line(lineDoc! as Map<String, Object?>),
@@ -55,47 +75,35 @@ abstract final class RecipeCodec {
         BlendCodec.decodeLine(lineDoc! as Map<String, Object?>),
     ];
     final treeDoc = doc['tree'];
-    if (treeDoc == null) {
-      return Recipe(
-        id: id,
-        name: name,
-        parentId: parentId,
-        yield: yield,
-        createdAt: createdAt,
-        updatedAt: updatedAt,
-        steps: steps,
-        lines: lines,
-        blends: blends,
-      );
-    }
+    if (treeDoc == null) return [...lines, ...blends];
     if (lines.isNotEmpty || blends.isNotEmpty) {
       throw ArgumentError('A compound recipe carries no lines or blends');
     }
-    return Recipe.compound(
-      id: id,
-      name: name,
-      parentId: parentId,
-      yield: yield,
-      createdAt: createdAt,
-      updatedAt: updatedAt,
-      steps: steps,
-      tree: _tree(treeDoc as Map<String, Object?>),
-    );
+    return _tree(treeDoc as Map<String, Object?>).components;
   }
 
-  static Map<String, Object?> _treeDoc(RecipeTree tree) => {
-    'name': tree.name,
-    'components': [for (final component in tree.components) _componentDoc(component)],
+  static Map<String, Object?> _itemDoc(RecipeItem item) => switch (item) {
+    RecipeLine() => _lineDoc(item),
+    BlendLine() => BlendCodec.encodeLine(item),
+    ComponentRef(:final recipe, :final factor) => {
+      'ref': encode(recipe),
+      'factor': factor,
+    },
   };
 
-  static Map<String, Object?> _componentDoc(RecipeComponent component) =>
-      switch (component) {
-        ComponentLeaf(:final line) => {'leaf': _lineDoc(line)},
-        ComponentRef(:final recipe, :final factor) => {
-          'ref': encode(recipe),
-          'factor': factor,
-        },
-      };
+  static RecipeItem _item(Map<String, Object?> doc) {
+    final ref = doc['ref'];
+    if (ref != null) {
+      return ComponentRef(
+        decode(ref as Map<String, Object?>),
+        factor: (doc['factor']! as num).toDouble(),
+      );
+    }
+    final blend = doc['blend'];
+    if (blend != null) return BlendCodec.decodeLine(doc);
+    if (doc['ingredient'] != null) return _line(doc);
+    throw ArgumentError('A recipe item is neither a line, a blend, nor a ref');
+  }
 
   static RecipeTree _tree(Map<String, Object?> doc) => RecipeTree(
     name: doc['name']! as String,
@@ -105,10 +113,10 @@ abstract final class RecipeCodec {
     ],
   );
 
-  static RecipeComponent _component(Map<String, Object?> doc) {
+  static RecipeItem _component(Map<String, Object?> doc) {
     final leaf = doc['leaf'];
     if (leaf != null) {
-      return ComponentLeaf(_line(leaf as Map<String, Object?>));
+      return _line(leaf as Map<String, Object?>);
     }
     final ref = doc['ref'];
     if (ref != null) {
