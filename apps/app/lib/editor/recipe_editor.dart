@@ -41,6 +41,8 @@ class _RecipeEditorState extends State<RecipeEditor> {
   late final List<TextEditingController> _exponents;
   late final List<BlendLine> _blendLines;
   late final List<TextEditingController> _blendGrams;
+  late final List<ComponentRef> _recipeRefs;
+  late final List<TextEditingController> _refFactors;
   late bool _piecesMode;
   late final TextEditingController _yieldValue;
 
@@ -50,24 +52,28 @@ class _RecipeEditorState extends State<RecipeEditor> {
   void initState() {
     super.initState();
     final source = widget.recipe ?? widget.parent;
-    final initialLines =
-        source?.lines ??
-        <RecipeLine>[
-          RecipeLine(seedIngredients['flour']!, const Quantity(500, Unit.g)),
-        ];
+    final initialLines = [
+      for (final item in source?.items ?? const <RecipeItem>[])
+        if (item is RecipeLine) item,
+    ];
+    final seed = initialLines.isEmpty
+        ? <RecipeLine>[
+            RecipeLine(seedIngredients['flour']!, const Quantity(500, Unit.g)),
+          ]
+        : initialLines;
     _name = TextEditingController(text: source?.name ?? '');
     _steps = TextEditingController(text: source?.steps.join('\n') ?? '');
     _amounts = [
-      for (final line in initialLines)
+      for (final line in seed)
         TextEditingController(text: _amountText(line.quantity)),
     ];
     _ingredients = [
-      for (final line in initialLines)
+      for (final line in seed)
         TextEditingController(text: line.ingredient.id),
     ];
-    _units = [for (final line in initialLines) line.quantity.unit];
+    _units = [for (final line in seed) line.quantity.unit];
     _exponents = [
-      for (final line in initialLines)
+      for (final line in seed)
         TextEditingController(
           text: line.ingredient.scalingExponent == null
               ? ''
@@ -77,10 +83,21 @@ class _RecipeEditorState extends State<RecipeEditor> {
     for (final controller in _ingredients) {
       controller.addListener(_rebuild);
     }
-    _blendLines = [...?source?.blends];
+    _blendLines = [
+      for (final item in source?.items ?? const <RecipeItem>[])
+        if (item is BlendLine) item,
+    ];
     _blendGrams = [
       for (final line in _blendLines)
         TextEditingController(text: _formatAmount(line.grams)),
+    ];
+    _recipeRefs = [
+      for (final item in source?.items ?? const <RecipeItem>[])
+        if (item is ComponentRef) item,
+    ];
+    _refFactors = [
+      for (final ref in _recipeRefs)
+        TextEditingController(text: _formatAmount(ref.factor)),
     ];
     final count = widget.recipe?.yield.count ?? widget.parent?.yield.count;
     final grams =
@@ -97,7 +114,7 @@ class _RecipeEditorState extends State<RecipeEditor> {
     _name.dispose();
     _steps.dispose();
     _yieldValue.dispose();
-    for (final c in [..._amounts, ..._ingredients, ..._blendGrams]) {
+    for (final c in [..._amounts, ..._ingredients, ..._blendGrams, ..._refFactors]) {
       c.dispose();
     }
     for (final c in _exponents) {
@@ -165,7 +182,6 @@ class _RecipeEditorState extends State<RecipeEditor> {
         RecipeLine(ingredient, Quantity(amount, _units[i])),
       );
     }
-    if (lines.isEmpty) return null;
     final blends = <BlendLine>[];
     for (var i = 0; i < _blendLines.length; i++) {
       final grams = double.tryParse(_blendGrams[i].text.replaceAll(',', '.'));
@@ -176,6 +192,20 @@ class _RecipeEditorState extends State<RecipeEditor> {
       final current = id == null ? null : widget.blends?.byId(id)?.blend;
       blends.add(BlendLine(current ?? _blendLines[i].blend, grams));
     }
+    final refs = <ComponentRef>[];
+    for (var i = 0; i < _recipeRefs.length; i++) {
+      final text = _refFactors[i].text.trim();
+      final factor = text.isEmpty
+          ? 1.0
+          : double.tryParse(text.replaceAll(',', '.'));
+      if (factor == null || factor <= 0) return null;
+      // Re-resolve at save time so a part edited while this sheet sat
+      // open lands in the recipe at its newest value.
+      final id = _recipeRefs[i].recipe.id;
+      final current = id == null ? null : widget.store.byId(id);
+      refs.add(ComponentRef(current ?? _recipeRefs[i].recipe, factor: factor));
+    }
+    if (lines.isEmpty && blends.isEmpty && refs.isEmpty) return null;
     final yieldValue = double.tryParse(_yieldValue.text.replaceAll(',', '.'));
     if (yieldValue == null || yieldValue <= 0) return null;
     final now = DateTime.now();
@@ -188,8 +218,7 @@ class _RecipeEditorState extends State<RecipeEditor> {
         count: _piecesMode ? yieldValue : null,
         totalGrams: _piecesMode ? null : yieldValue,
       ),
-      lines: lines,
-      blends: blends,
+      items: [...lines, ...blends, ...refs],
       steps: [
         for (final step in _steps.text.split('\n'))
           if (step.trim().isNotEmpty) step.trim(),
@@ -236,6 +265,47 @@ class _RecipeEditorState extends State<RecipeEditor> {
         TextEditingController(text: _formatAmount(picked.totalGrams)),
       );
     });
+  }
+
+  List<Recipe> get _pickableRecipes => [
+    for (final recipe in widget.store.all())
+      if (!recipe.isCompound && recipe.id != (widget.recipe ?? widget.parent)?.id)
+        recipe,
+  ];
+
+  Future<void> _attachRecipe() async {
+    final picked = await showModalBottomSheet<Recipe>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final recipe in _pickableRecipes)
+              ListTile(
+                key: ValueKey('attach-recipe-${recipe.id}'),
+                title: Text(recipe.name),
+                subtitle: Text(
+                  '${recipe.items.whereType<RecipeLine>().map((line) => line.ingredient.id).join(' + ')}'
+                  ' · ${_recipeSummary(recipe)}',
+                  style: boxAnnotation(context, size: 14),
+                ),
+                onTap: () => Navigator.of(context).pop(recipe),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (picked == null) return;
+    setState(() {
+      _recipeRefs.add(ComponentRef(picked, factor: 1.0));
+      _refFactors.add(TextEditingController(text: '1'));
+    });
+  }
+
+  String _recipeSummary(Recipe recipe) {
+    final grams = recipe.yield.totalGrams;
+    if (grams != null) return '${grams.round()} g';
+    return 'makes ${recipe.yield.count!.round()}';
   }
 
   Future<void> _save() async {
@@ -519,6 +589,65 @@ class _RecipeEditorState extends State<RecipeEditor> {
                           ),
                         ),
                     ],
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton.icon(
+                        key: const ValueKey('editor-attach-recipe'),
+                        onPressed: _pickableRecipes.isEmpty ? null : _attachRecipe,
+                        icon: const Icon(Icons.layers),
+                        label: const Text('Use a recipe'),
+                      ),
+                    ),
+                    for (var i = 0; i < _recipeRefs.length; i++)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Expanded(
+                              flex: 3,
+                              child: TextFormField(
+                                initialValue: _recipeRefs[i].recipe.name,
+                                readOnly: true,
+                                style: boxQuantity(context),
+                                decoration: InputDecoration(
+                                  labelText: i == 0 ? 'Recipe' : null,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              flex: 2,
+                              child: TextField(
+                                key: ValueKey('editor-attached-factor-$i'),
+                                controller: _refFactors[i],
+                                keyboardType:
+                                    const TextInputType.numberWithOptions(
+                                      decimal: true,
+                                    ),
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.allow(
+                                    RegExp(r'[0-9.,]'),
+                                  ),
+                                ],
+                                style: boxQuantity(context),
+                                decoration: const InputDecoration(
+                                  labelText: '×',
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              key: ValueKey('editor-attached-recipe-remove-$i'),
+                              icon: const Icon(Icons.remove_circle_outline),
+                              tooltip: 'Remove recipe',
+                              onPressed: () => setState(() {
+                                _recipeRefs.removeAt(i);
+                                _refFactors.removeAt(i);
+                              }),
+                            ),
+                          ],
+                        ),
+                      ),
                     const SizedBox(height: 8),
                     TextField(
                       key: const ValueKey('editor-steps'),

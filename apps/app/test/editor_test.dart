@@ -1,6 +1,8 @@
+import 'package:bellenissimos_app/editor/recipe_editor.dart';
 import 'package:bellenissimos_app/main.dart' as app;
 import 'package:bellenissimos_app/persistence/recipe_store.dart';
 import 'package:bellenissimos_app/seed_recipes.dart';
+import 'package:bellenissimos_app/theme.dart';
 import 'package:bellenissimos_core/core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -18,11 +20,26 @@ Recipe levainLoaf() => Recipe(
   id: 'levain-loaf',
   name: 'Levain loaf',
   yield: YieldSpec(totalGrams: 900),
-  lines: [
+  items: [
     RecipeLine(
       const Ingredient('fresh_yeast', scalingExponent: 0.7),
       const Quantity(20, Unit.g),
     ),
+  ],
+);
+
+/// A plain recipe holding a recipe part; keeps [Recipe.yield] out of
+/// async bodies.
+Recipe cookieStack(Recipe part) => Recipe(
+  id: 'cookie-stack',
+  name: 'Cookie stack',
+  yield: const YieldSpec(count: 1),
+  items: [
+    RecipeLine(
+      seedIngredients['flour']!,
+      const Quantity(100, Unit.g),
+    ),
+    ComponentRef(part, factor: 0.5),
   ],
 );
 
@@ -39,13 +56,45 @@ void main() {
   });
 
   late RecipeStore store;
+  Recipe? popped;
 
   Future<void> pumpApp(WidgetTester tester) async {
     tester.view.physicalSize = const Size(1170, 12000);
     tester.view.devicePixelRatio = 3.0;
     addTearDown(tester.view.reset);
     store = RecipeStore.inMemory()..ensureSeeded(seedRecipes);
+    popped = null;
     await tester.pumpWidget(app.BellenissimosApp(store: store));
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> pumpPlainHarness(WidgetTester tester, {Recipe? recipe}) async {
+    tester.view.physicalSize = const Size(1170, 3000);
+    tester.view.devicePixelRatio = 3.0;
+    addTearDown(tester.view.reset);
+    popped = null;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: recipeBoxLight,
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => Center(
+              child: FilledButton(
+                onPressed: () async {
+                  popped = await showRecipeEditor(
+                    context,
+                    store,
+                    recipe: recipe,
+                  );
+                },
+                child: const Text('open editor'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('open editor'));
     await tester.pumpAndSettle();
   }
 
@@ -86,9 +135,9 @@ void main() {
     final saved = byId(store, 'chocolate-cake')!;
     expect(yieldOf(saved).totalGrams, 400);
     expect(yieldOf(saved).count, isNull);
-    expect(saved.lines.single.ingredient.id, 'cocoa');
-    expect(saved.lines.single.quantity.amount, 30);
-    expect(saved.lines.single.quantity.unit, Unit.g);
+    expect(saved.items.whereType<RecipeLine>().toList().single.ingredient.id, 'cocoa');
+    expect(saved.items.whereType<RecipeLine>().toList().single.quantity.amount, 30);
+    expect(saved.items.whereType<RecipeLine>().toList().single.quantity.unit, Unit.g);
     expect(saved.steps, ['mix everything', 'bake at 180 C']);
     expect(saved.createdAt, isNotNull);
     expect(saved.updatedAt, isNotNull);
@@ -147,7 +196,7 @@ void main() {
     final variant = byId(store, 'nutty-cookies')!;
     expect(variant.parentId, 'butter-cookies');
     expect(yieldOf(variant).count, 24);
-    expect(variant.lines[1].ingredient.id, 'walnut');
+    expect(variant.items.whereType<RecipeLine>().toList()[1].ingredient.id, 'walnut');
     expect(find.text('Nutty cookies'), findsOneWidget);
     expect(find.text('variant of Butter cookies'), findsNWidgets(2));
     expect(find.text('VARIANT'), findsNothing);
@@ -264,9 +313,9 @@ void main() {
     await tester.pumpAndSettle();
 
     final saved = byId(store, 'two-liner')!;
-    expect(saved.lines.length, 2);
-    expect(saved.lines[0].ingredient.id, 'flour');
-    expect(saved.lines[1].ingredient.id, 'cocoa');
+    expect(saved.items.whereType<RecipeLine>().toList().length, 2);
+    expect(saved.items.whereType<RecipeLine>().toList()[0].ingredient.id, 'flour');
+    expect(saved.items.whereType<RecipeLine>().toList()[1].ingredient.id, 'cocoa');
     expect(find.text('30 g cocoa'), findsOneWidget);
   });
 
@@ -285,9 +334,9 @@ void main() {
     await tester.pumpAndSettle();
 
     final saved = byId(store, 'butter-cookies')!;
-    expect(saved.lines.length, 3);
+    expect(saved.items.whereType<RecipeLine>().toList().length, 3);
     expect(
-      saved.lines.map((line) => line.ingredient.id),
+      saved.items.whereType<RecipeLine>().toList().map((line) => line.ingredient.id),
       ['flour', 'butter', 'sugar'],
     );
     expect(find.text('1 piece egg'), findsNothing);
@@ -339,9 +388,9 @@ void main() {
     await tester.pumpAndSettle();
 
     final saved = byId(store, 'milk-pudding')!;
-    expect(saved.lines.single.ingredient.id, 'milk');
-    expect(saved.lines.single.quantity.unit, Unit.ml);
-    expect(saved.lines.single.quantity.amount, 300);
+    expect(saved.items.whereType<RecipeLine>().toList().single.ingredient.id, 'milk');
+    expect(saved.items.whereType<RecipeLine>().toList().single.quantity.unit, Unit.ml);
+    expect(saved.items.whereType<RecipeLine>().toList().single.quantity.amount, 300);
     expect(find.text('300 ml milk'), findsOneWidget);
   });
 
@@ -386,7 +435,7 @@ void main() {
       await tester.pumpAndSettle();
 
       final saved = byId(store, 'sourdough')!;
-      expect(saved.lines.single.ingredient.scalingExponent, 0.7);
+      expect(saved.items.whereType<RecipeLine>().toList().single.ingredient.scalingExponent, 0.7);
     });
 
     testWidgets('an empty exponent saves a linear custom ingredient', (
@@ -425,7 +474,7 @@ void main() {
       await tester.pumpAndSettle();
 
       final saved = byId(store, 'cocoa-bar')!;
-      expect(saved.lines.single.ingredient.scalingExponent, isNull);
+      expect(saved.items.whereType<RecipeLine>().toList().single.ingredient.scalingExponent, isNull);
     });
 
     testWidgets('a seed ingredient shows no exponent field', (tester) async {
@@ -471,8 +520,119 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(
-        byId(store, 'levain-loaf')!.lines.single.ingredient.scalingExponent,
+        (byId(store, 'levain-loaf')!.items.single as RecipeLine).ingredient.scalingExponent,
         0.7,
+      );
+    });
+  });
+
+  group('recipe parts', () {
+    testWidgets('attaching a recipe saves a ref with its factor', (
+      tester,
+    ) async {
+      await pumpApp(tester);
+      await tester.tap(find.byKey(const ValueKey('add-recipe')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('add-choice-recipe')));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(
+        find.byKey(const ValueKey('editor-name')),
+        'Cookie stack',
+      );
+      await tester.tap(find.byKey(const ValueKey('editor-attach-recipe')));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('attach-recipe-butter-cookies')),
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const ValueKey('editor-attached-factor-0')),
+        '2',
+      );
+      await tester.tap(find.byKey(const ValueKey('editor-save')));
+      await tester.pumpAndSettle();
+
+      final saved = byId(store, 'cookie-stack')!;
+      expect(saved.isCompound, isTrue);
+      final ref = saved.items.last as ComponentRef;
+      expect(ref.recipe.id, 'butter-cookies');
+      expect(ref.factor, 2);
+      expect(find.text('Butter cookies'), findsWidgets);
+    });
+
+    testWidgets('removing a recipe row drops the ref', (tester) async {
+      await pumpApp(tester);
+      await pumpPlainHarness(
+        tester,
+        recipe: cookieStack(store.byId('butter-cookies')!),
+      );
+
+      await tester.tap(
+        find.byKey(const ValueKey('editor-attached-recipe-remove-0')),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const ValueKey('editor-save')));
+      await tester.pumpAndSettle();
+
+      expect(popped!.isCompound, isFalse);
+      expect(popped!.items, hasLength(1));
+      expect(popped!.items.single, isA<RecipeLine>());
+    });
+
+    testWidgets('the plain editor restores ref rows instead of dropping them',
+        (tester) async {
+      await pumpApp(tester);
+      await pumpPlainHarness(
+        tester,
+        recipe: cookieStack(store.byId('butter-cookies')!),
+      );
+
+      expect(
+        tester
+            .widget<TextField>(
+              find.byKey(const ValueKey('editor-attached-factor-0')),
+            )
+            .controller!
+            .text,
+        '0.5',
+      );
+
+      await tester.tap(find.byKey(const ValueKey('editor-save')));
+      await tester.pumpAndSettle();
+
+      final ref = popped!.items[1] as ComponentRef;
+      expect(ref.recipe.id, 'butter-cookies');
+      expect(ref.factor, 0.5);
+      expect(popped!.items[0], isA<RecipeLine>());
+    });
+
+    testWidgets('editing restores recipe rows with their factors', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(1170, 12000);
+      tester.view.devicePixelRatio = 3.0;
+      addTearDown(tester.view.reset);
+      store = RecipeStore.inMemory()..ensureSeeded(seedRecipes);
+      store.upsert(cookieStack(store.byId('butter-cookies')!));
+      await tester.pumpWidget(app.BellenissimosApp(store: store));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const ValueKey('menu-cookie-stack')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('menu-edit-cookie-stack')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Compound dish'), findsOneWidget);
+      expect(
+        tester
+            .widget<TextField>(
+              find.byKey(const ValueKey('editor-comp-1-factor')),
+            )
+            .controller!
+            .text,
+        '0.5',
       );
     });
   });

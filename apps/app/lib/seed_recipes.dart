@@ -11,7 +11,7 @@ final Recipe butterCookies = Recipe(
   id: 'butter-cookies',
   name: 'Butter cookies',
   yield: const YieldSpec(count: 24),
-  lines: [
+  items: [
     RecipeLine(seedIngredients['flour']!, const Quantity(250, Unit.g)),
     RecipeLine(seedIngredients['butter']!, const Quantity(200, Unit.g)),
     RecipeLine(seedIngredients['sugar']!, const Quantity(100, Unit.g)),
@@ -31,7 +31,7 @@ final Recipe sandwichLoaf = Recipe(
   id: 'sandwich-loaf',
   name: 'Sandwich loaf',
   yield: const YieldSpec(totalGrams: 900),
-  lines: [
+  items: [
     RecipeLine(seedIngredients['flour']!, const Quantity(500, Unit.g)),
     RecipeLine(seedIngredients['water']!, const Quantity(320, Unit.g)),
     RecipeLine(seedIngredients['salt']!, const Quantity(10, Unit.g)),
@@ -50,7 +50,7 @@ final Recipe eggFreeCookies = butterCookies.copyWith(
   id: 'egg-free-cookies',
   parentId: 'butter-cookies',
   name: 'Egg-free butter cookies',
-  lines: [
+  items: [
     RecipeLine(seedIngredients['flour']!, const Quantity(250, Unit.g)),
     RecipeLine(seedIngredients['butter']!, const Quantity(200, Unit.g)),
     RecipeLine(seedIngredients['sugar']!, const Quantity(100, Unit.g)),

@@ -1,5 +1,7 @@
 import 'package:bellenissimos_app/editor/compound_editor.dart';
 import 'package:bellenissimos_app/main.dart' as app;
+import 'package:bellenissimos_app/persistence/blend_codec.dart';
+import 'package:bellenissimos_app/persistence/blend_store.dart';
 import 'package:bellenissimos_app/persistence/recipe_store.dart';
 import 'package:bellenissimos_app/seed_recipes.dart';
 import 'package:bellenissimos_app/theme.dart';
@@ -16,7 +18,7 @@ Recipe spongePart() => Recipe(
   id: 'sponge',
   name: 'Sponge',
   yield: const YieldSpec(count: 1),
-  lines: const [
+  items: const [
     RecipeLine(Ingredient('flour', gramsPerMl: 0.5), Quantity(300, Unit.g)),
   ],
 );
@@ -30,9 +32,7 @@ Recipe editableDish() => Recipe.compound(
     name: 'Torte',
     components: [
       ComponentRef(spongePart(), factor: 0.75),
-      const ComponentLeaf(
-        RecipeLine(Ingredient('powdered_sugar'), Quantity(30, Unit.g)),
-      ),
+      const RecipeLine(Ingredient('powdered_sugar'), Quantity(30, Unit.g)),
     ],
   ),
 );
@@ -40,9 +40,33 @@ Recipe editableDish() => Recipe.compound(
 typedef LineShape = (String, double, Unit);
 
 List<LineShape> lineShapes(Recipe recipe) => [
-  for (final line in recipe.lines)
+  for (final line in recipe.items.whereType<RecipeLine>())
     (line.ingredient.id, line.quantity.amount, line.quantity.unit),
 ];
+
+/// [Recipe.yield] is a keyword in async bodies; build dishes out of line.
+Recipe blendDish(Blend blend) => Recipe.compound(
+  id: 'cake',
+  name: 'Cake',
+  yield: const YieldSpec(count: 1),
+  tree: RecipeTree(
+    name: 'Cake',
+    components: [
+      ComponentRef(spongePart(), factor: 1),
+      BlendLine(blend, 40),
+    ],
+  ),
+);
+
+Recipe gramsDish() => Recipe.compound(
+  id: 'loaf-cake',
+  name: 'Loaf cake',
+  yield: const YieldSpec(totalGrams: 900),
+  tree: RecipeTree(
+    name: 'Loaf cake',
+    components: [ComponentRef(spongePart(), factor: 1)],
+  ),
+);
 
 void main() {
   setUpAll(() {
@@ -69,7 +93,11 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  Future<void> pumpHarness(WidgetTester tester, {Recipe? recipe}) async {
+  Future<void> pumpHarness(
+    WidgetTester tester, {
+    Recipe? recipe,
+    BlendStore? blends,
+  }) async {
     tester.view.physicalSize = const Size(1170, 3000);
     tester.view.devicePixelRatio = 3.0;
     addTearDown(tester.view.reset);
@@ -82,7 +110,12 @@ void main() {
             builder: (context) => Center(
               child: FilledButton(
                 onPressed: () async {
-                  popped = await showCompoundEditor(context, store, recipe: recipe);
+                  popped = await showCompoundEditor(
+                    context,
+                    store,
+                    blends: blends,
+                    recipe: recipe,
+                  );
                 },
                 child: const Text('open editor'),
               ),
@@ -198,17 +231,17 @@ void main() {
 
     final saved = popped!;
     expect(saved.isCompound, isTrue);
-    final components = saved.tree!.components;
+    final components = saved.items;
     expect(components.length, 3);
     final first = components[0] as ComponentRef;
     expect(first.recipe.id, 'butter-cookies');
     expect(first.factor, 1);
     final second = components[1] as ComponentRef;
     expect(second.factor, 2);
-    final leaf = components[2] as ComponentLeaf;
-    expect(leaf.line.ingredient.id, 'cocoa');
-    expect(leaf.line.quantity.amount, 30);
-    expect(leaf.line.quantity.unit, Unit.g);
+    final leaf = components[2] as RecipeLine;
+    expect(leaf.ingredient.id, 'cocoa');
+    expect(leaf.quantity.amount, 30);
+    expect(leaf.quantity.unit, Unit.g);
     expect(yieldOf(saved).count, 1);
     expect(saved.createdAt, isNotNull);
     expect(saved.updatedAt, isNotNull);
@@ -295,13 +328,12 @@ void main() {
     await tester.pumpAndSettle();
 
     final saved = popped!;
-    final components = saved.tree!.components;
+    final components = saved.items;
     expect(components.length, 2);
     final ref = components[0] as ComponentRef;
     expect(ref.recipe.id, 'sponge');
     expect(ref.factor, 0.75);
-    expect((components[1] as ComponentLeaf).line.ingredient.id,
-        'powdered_sugar');
+    expect((components[1] as RecipeLine).ingredient.id, 'powdered_sugar');
   });
 
   testWidgets('incomplete drafts are rejected with a message', (tester) async {
@@ -342,7 +374,7 @@ void main() {
 
     await tester.tap(find.byKey(const ValueKey('editor-save')));
     await tester.pumpAndSettle();
-    expect(popped!.tree!.components.length, 1);
+    expect(popped!.items.length, 1);
     expect(store.all().length, 4);
 
     await pumpHarness(tester);
@@ -378,7 +410,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('editor-save')));
     await tester.pumpAndSettle();
 
-    final ref = popped!.tree!.components.first as ComponentRef;
+    final ref = popped!.items.first as ComponentRef;
     expect(ref.recipe.id, 'sandwich-loaf');
     expect(ref.factor, 0.75);
   });
@@ -416,5 +448,186 @@ void main() {
           .text,
       '0.75',
     );
+  });
+
+  BlendStore blendLibrary() {    final blends = BlendStore.inMemory(store);
+    blends.upsertBlend(
+      BlendRecord(
+        blend: SweetenerBlend(
+          id: 'berry-1',
+          name: 'Berry mix',
+          grams: {const Ingredient('sugar'): 100},
+          sweetnessPerGram: {const Ingredient('sugar'): 0.7},
+        ),
+      ),
+    );
+    return blends;
+  }
+
+  Future<void> addBlend(WidgetTester tester) async {
+    await tester.tap(find.byKey(const ValueKey('editor-add-blend')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('compound-pick-blend-berry-1')));
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('a blend row saves its grams through the picker', (
+    tester,
+  ) async {
+    await pumpApp(tester);
+    final library = blendLibrary();
+    await pumpHarness(tester, blends: library);
+
+    await tester.enterText(find.byKey(const ValueKey('editor-name')), 'Cake');
+    await addBlend(tester);
+    expect(
+      tester
+          .widget<TextField>(
+            find.byKey(const ValueKey('editor-comp-0-blend-grams')),
+          )
+          .controller!
+          .text,
+      '100',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('editor-comp-0-blend-grams')),
+      '40',
+    );
+
+    await tester.tap(find.byKey(const ValueKey('editor-save')));
+    await tester.pumpAndSettle();
+
+    final blend = popped!.items.single as BlendLine;
+    expect(blend.blend.id, 'berry-1');
+    expect(blend.grams, 40);
+  });
+
+  testWidgets('editing restores blend rows with their grams', (
+    tester,
+  ) async {
+    await pumpApp(tester);
+    final library = blendLibrary();
+    final dish = blendDish(library.byId('berry-1')!.blend);
+    await pumpHarness(tester, blends: library, recipe: dish);
+
+    expect(
+      tester
+          .widget<TextField>(find.byKey(const ValueKey('editor-comp-1-blend')))
+          .controller!
+          .text,
+      'Berry mix',
+    );
+    expect(
+      tester
+          .widget<TextField>(
+            find.byKey(const ValueKey('editor-comp-1-blend-grams')),
+          )
+          .controller!
+          .text,
+      '40',
+    );
+
+    await tester.tap(find.byKey(const ValueKey('editor-save')));
+    await tester.pumpAndSettle();
+
+    final blend = popped!.items[1] as BlendLine;
+    expect(blend.blend.id, 'berry-1');
+    expect(blend.grams, 40);
+  });
+
+  testWidgets('toggling the yield mode saves a grams yield', (
+    tester,
+  ) async {
+    await pumpApp(tester);
+    await pumpHarness(tester);
+
+    await tester.enterText(find.byKey(const ValueKey('editor-name')), 'Loaf');
+    await tester.tap(find.text('grams'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('editor-compound-makes')),
+      '900',
+    );
+    await addPart(tester, 'sandwich-loaf');
+
+    await tester.tap(find.byKey(const ValueKey('editor-save')));
+    await tester.pumpAndSettle();
+
+    expect(yieldOf(popped!).count, isNull);
+    expect(yieldOf(popped!).totalGrams, 900);
+  });
+
+  testWidgets('a blend row can be re-picked from its field', (
+    tester,
+  ) async {
+    await pumpApp(tester);
+    final library = blendLibrary();
+    await pumpHarness(
+      tester,
+      blends: library,
+      recipe: blendDish(library.byId('berry-1')!.blend),
+    );
+
+    await tester.tap(find.byKey(const ValueKey('editor-comp-1-blend')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('compound-pick-blend-berry-1')));
+    await tester.pumpAndSettle();
+
+    expect(
+      tester
+          .widget<TextField>(find.byKey(const ValueKey('editor-comp-1-blend')))
+          .controller!
+          .text,
+      'Berry mix',
+    );
+    await tester.tap(find.byKey(const ValueKey('editor-save')));
+    await tester.pumpAndSettle();
+
+    final blend = popped!.items[1] as BlendLine;
+    expect(blend.blend.id, 'berry-1');
+  });
+
+  testWidgets('a blend row can be removed before saving', (
+    tester,
+  ) async {
+    await pumpApp(tester);
+    final library = blendLibrary();
+    await pumpHarness(
+      tester,
+      blends: library,
+      recipe: blendDish(library.byId('berry-1')!.blend),
+    );
+
+    await tester.tap(find.byKey(const ValueKey('editor-comp-1-remove')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('editor-save')));
+    await tester.pumpAndSettle();
+
+    expect(popped!.items, hasLength(1));
+    expect(popped!.items.single, isA<ComponentRef>());
+  });
+
+  testWidgets('a grams yield restores grams mode and survives save', (
+    tester,
+  ) async {
+    await pumpApp(tester);
+    await pumpHarness(tester, recipe: gramsDish());
+
+    expect(
+      tester
+          .widget<TextField>(
+            find.byKey(const ValueKey('editor-compound-makes')),
+          )
+          .controller!
+          .text,
+      '900',
+    );
+
+    await tester.tap(find.byKey(const ValueKey('editor-save')));
+    await tester.pumpAndSettle();
+
+    expect(yieldOf(popped!).count, isNull);
+    expect(yieldOf(popped!).totalGrams, 900);
   });
 }

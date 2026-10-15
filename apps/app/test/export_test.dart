@@ -47,7 +47,7 @@ Recipe _batter() => Recipe(
   id: 'batter',
   name: 'Batter',
   yield: const YieldSpec(count: 1),
-  lines: [
+  items: [
     RecipeLine(const Ingredient('flour'), const Quantity(500, Unit.g)),
   ],
 );
@@ -55,7 +55,7 @@ Recipe _batter() => Recipe(
 Recipe _dashOfSalt() => Recipe(
   name: 'Dash of salt',
   yield: const YieldSpec(count: 1),
-  lines: [RecipeLine(const Ingredient('salt'), const Quantity(5, Unit.g))],
+  items: [RecipeLine(const Ingredient('salt'), const Quantity(5, Unit.g))],
 );
 
 Recipe _tart() => Recipe.compound(
@@ -77,9 +77,7 @@ Recipe _compound() => Recipe.compound(
     components: [
       ComponentRef(_batter(), factor: 2),
       ComponentRef(_tart(), factor: 1),
-      ComponentLeaf(
-        RecipeLine(const Ingredient('salt'), const Quantity(5, Unit.g)),
-      ),
+      RecipeLine(const Ingredient('salt'), const Quantity(5, Unit.g)),
     ],
   ),
 );
@@ -394,7 +392,7 @@ void main() {
       expect(store.byId('test-variant')!.isCompound, isFalse);
     });
 
-    test('a v3 box with compounds roundtrips through export and import', () {
+    test('a v4 box with unified items roundtrips through export and import', () {
       final source = RecipeStore.inMemory();
       source.upsert(_batter());
       source.upsert(_compound());
@@ -409,23 +407,28 @@ void main() {
       expect(result.imported, 2);
       final restored = store.byId('cake')!;
       expect(restored.isCompound, isTrue);
-      final components = restored.tree!.components;
-      final batter = components[0] as ComponentRef;
+      final items = restored.items;
+      final batter = items[0] as ComponentRef;
       expect(batter.recipe.id, 'batter');
       expect(batter.factor, 2);
-      expect(batter.recipe.lines.single.quantity.amount, 500);
-      final tart = components[1] as ComponentRef;
+      expect(
+        (batter.recipe.items.single as RecipeLine).quantity.amount,
+        500,
+      );
+      final tart = items[1] as ComponentRef;
       expect(tart.recipe.isCompound, isTrue);
-      expect(tart.recipe.tree!.name, 'tart shell');
-      final inner = tart.recipe.tree!.components.single as ComponentRef;
+      final inner = tart.recipe.items.single as ComponentRef;
       expect(inner.recipe.id, isNull);
-      expect(inner.recipe.lines.single.ingredient.id, 'salt');
-      final leaf = components[2] as ComponentLeaf;
-      expect(leaf.line.ingredient.id, 'salt');
-      expect(leaf.line.quantity.amount, 5);
+      expect(
+        (inner.recipe.items.single as RecipeLine).ingredient.id,
+        'salt',
+      );
+      final leaf = items[2] as RecipeLine;
+      expect(leaf.ingredient.id, 'salt');
+      expect(leaf.quantity.amount, 5);
     });
 
-    test('a v3 payload merges compounds beside existing recipes', () {
+    test('a v4 payload merges unified recipes beside existing recipes', () {
       final payloadSource = RecipeStore.inMemory();
       payloadSource.upsert(_batter());
       payloadSource.upsert(_compound());
@@ -449,28 +452,66 @@ void main() {
       expect(store.byId('cake')!.isCompound, isTrue);
     });
 
-    test('version 4 is refused with the existing issue text', () {
+    test('a future version is refused with the existing issue text', () {
       final result = store.importBox(
-        _rawBox(version: 4, recipes: [RecipeCodec.encode(_variant())]),
+        _rawBox(
+          version: boxVersion + 1,
+          recipes: [RecipeCodec.encode(_variant())],
+        ),
         mode: BoxImportMode.replace,
         blends: blends,
       );
 
       expect(result.imported, 0);
-      expect(result.issues.single.toString(), 'Unsupported box version: 4');
+      expect(
+        result.issues.single.toString(),
+        'Unsupported box version: ${boxVersion + 1}',
+      );
       expect(store.all(), isEmpty);
     });
   });
 
-  group('compound corruption and id collisions', () {
-    test('a doc with both tree and lines becomes an issue, store untouched', () {
+  group('legacy corruption and id collisions', () {
+    Map<String, Object?> legacyDoc({
+      List<Object?> lines = const [],
+      List<Object?> blends = const [],
+      Map<String, Object?>? tree,
+    }) => {
+      'id': 'cake',
+      'name': 'Cake',
+      'parentId': null,
+      'yield': {'count': 1, 'totalGrams': null},
+      'createdAt': null,
+      'updatedAt': null,
+      'steps': const <String>[],
+      'lines': lines,
+      'blends': blends,
+      'tree': tree,
+    };
+
+    Map<String, Object?> legacyTree(List<Object?> components) => {
+      'name': 'assembled cake',
+      'components': components,
+    };
+
+    test('a legacy doc with both tree and lines becomes an issue, store untouched',
+        () {
       final store = RecipeStore.inMemory()..ensureSeeded(seedRecipes);
       final blends = BlendStore.inMemory(store);
-      final doc = RecipeCodec.encode(_compound());
-      doc['lines'] = [
-        (RecipeCodec.encode(_batter())['lines']! as List<Object?>).first,
-      ];
-      final payload = _rawBox(recipes: [doc]);
+      final lineDoc = {
+        'ingredient': 'flour',
+        'gramsPerMl': 0.6,
+        'gramsPerPiece': null,
+        'roundingStep': null,
+        'scalingExponent': null,
+        'value': 500,
+        'unit': 'g',
+      };
+      final payload = _rawBox(
+        recipes: [
+          legacyDoc(lines: [lineDoc], tree: legacyTree(const [])),
+        ],
+      );
 
       final result = store.importBox(
         payload,
@@ -489,14 +530,16 @@ void main() {
       expect(blends.all(), isEmpty);
     });
 
-    test('a doc with both tree and blends becomes an issue', () {
+    test('a legacy doc with both tree and blends becomes an issue', () {
       final blend = SweetenerBlend(
         name: 'mix',
         grams: {const Ingredient('honey'): 60},
         sweetnessPerGram: {const Ingredient('honey'): 1.1},
       );
-      final doc = RecipeCodec.encode(_compound());
-      doc['blends'] = [BlendCodec.encodeLine(BlendLine(blend, 100))];
+      final doc = legacyDoc(
+        blends: [BlendCodec.encodeLine(BlendLine(blend, 100))],
+        tree: legacyTree(const []),
+      );
 
       final (recipes, _, issues) = parseBox(_rawBox(recipes: [doc]));
 

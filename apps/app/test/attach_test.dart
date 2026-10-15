@@ -38,7 +38,7 @@ BlendRecord _weak() => BlendRecord(
 
 Recipe _recipeWith(Blend blend, {double grams = 120}) => butterCookies.copyWith(
   id: 'blend-cookies',
-  blends: [BlendLine(blend, grams)],
+  items: [BlendLine(blend, grams)],
 );
 
 void main() {
@@ -110,8 +110,8 @@ void main() {
     await tester.pumpAndSettle();
 
     final saved = store.byId('butter-cookies')!;
-    expect(saved.blends.single.grams, 200);
-    expect(saved.blends.single.blend.id, 'ery-xyl');
+    expect((saved.items.whereType<BlendLine>().single).grams, 200);
+    expect((saved.items.whereType<BlendLine>().single).blend.id, 'ery-xyl');
   });
 
   testWidgets('the attach control hides when the library is empty', (
@@ -138,7 +138,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('editor-save')));
     await tester.pumpAndSettle();
 
-    expect(store.byId('butter-cookies')!.blends, isEmpty);
+    expect(store.byId('butter-cookies')!.items.whereType<BlendLine>(), isEmpty);
   });
 
   testWidgets('saving the editor picks up blend edits made meanwhile', (
@@ -170,7 +170,11 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('editor-save')));
     await tester.pumpAndSettle();
 
-    final line = store.byId('blend-cookies')!.blends.single;
+    final line = store
+        .byId('blend-cookies')!
+        .items
+        .whereType<BlendLine>()
+        .single;
     expect(line.grams, 120);
     expect(line.blend.name, 'Ery xyl v2');
   });

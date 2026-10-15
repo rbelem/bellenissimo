@@ -169,6 +169,24 @@ void main() {
       expect(cookieRecipe.isCompound, isFalse);
     });
 
+    test('a tree of only leaves is not compound', () {
+      final dish = Recipe.compound(
+        name: 'simple dish',
+        yield: const YieldSpec(count: 1),
+        tree: RecipeTree(
+          name: 'simple dish',
+          components: [
+            const RecipeLine(
+              Ingredient('flour', gramsPerMl: 0.5),
+              Quantity(100, Unit.g),
+            ),
+          ],
+        ),
+      );
+      expect(dish.isCompound, isFalse);
+      expect(dish.items, hasLength(1));
+    });
+
     test('scaling a compound scales yield, accumulates ref factors and snaps a part exactly once', () {
       final cake = Recipe.compound(
         name: 'layer cake',

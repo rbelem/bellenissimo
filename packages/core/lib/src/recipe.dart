@@ -113,7 +113,9 @@ class Recipe {
   bool get isCompound => items.any((item) => item is ComponentRef);
 
   /// A compound dish whose content is [tree]; the tree's components
-  /// become this recipe's items, in order.
+  /// become this recipe's items, in order. The result reports compound
+  /// only when the tree holds refs — a tree of bare lines is a plain
+  /// recipe with ordered items.
   factory Recipe.compound({
     required String name,
     required YieldSpec yield,

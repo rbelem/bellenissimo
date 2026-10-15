@@ -10,6 +10,28 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 
+/// [Recipe.yield] is a keyword in async bodies; build it out of line.
+Recipe filterTorte(RecipeStore store) => Recipe.compound(
+  id: 'torte',
+  name: 'Torte',
+  yield: const YieldSpec(count: 1),
+  tree: RecipeTree(
+    name: 'Torte',
+    components: [
+      ComponentRef(store.byId('sandwich-loaf')!, factor: 1),
+      BlendLine(
+        SweetenerBlend(
+          id: 'berry-1',
+          name: 'Berry mix',
+          grams: {const Ingredient('sugar'): 100},
+          sweetnessPerGram: {const Ingredient('sugar'): 0.7},
+        ),
+        40,
+      ),
+    ],
+  ),
+);
+
 void main() {
   setUpAll(() {
     const channel = MethodChannel('plugins.flutter.io/path_provider');
@@ -143,7 +165,7 @@ void main() {
     const undated = Recipe(
       name: 'ad hoc',
       yield: YieldSpec(count: 1),
-      lines: [],
+      items: [],
     );
     expect(timestampLine(undated), isNull);
     expect(
@@ -345,6 +367,33 @@ void main() {
       expect(find.text('Butter cookies'), findsOneWidget);
       expect(find.text('Egg-free butter cookies'), findsOneWidget);
       expect(find.text('Sandwich loaf'), findsNothing);
+    });
+
+    testWidgets('matches part recipe and blend names', (tester) async {
+      tester.view.physicalSize = const Size(1170, 12000);
+      tester.view.devicePixelRatio = 3.0;
+      addTearDown(tester.view.reset);
+      final store = RecipeStore.inMemory()..ensureSeeded(seedRecipes);
+      store.upsert(filterTorte(store));
+      await tester.pumpWidget(app.BellenissimosApp(store: store));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(
+        find.byKey(const ValueKey('recipe-filter')),
+        'berry',
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Torte'), findsOneWidget);
+      expect(find.text('Butter cookies'), findsNothing);
+
+      await tester.enterText(
+        find.byKey(const ValueKey('recipe-filter')),
+        'sandwich',
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Torte'), findsOneWidget);
+      expect(find.text('Sandwich loaf'), findsWidgets);
+      expect(find.text('Butter cookies'), findsNothing);
     });
 
     testWidgets('a keystroke does not rebuild the page chrome', (tester) async {

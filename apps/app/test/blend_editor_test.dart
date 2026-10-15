@@ -384,7 +384,7 @@ void main() {
       extraRecipe: butterCookies.copyWith(
         id: 'blend-cookies',
         name: 'Blend cookies',
-        blends: [BlendLine(record.blend, 120)],
+        items: [BlendLine(record.blend, 120)],
       ),
     );
 
@@ -409,7 +409,7 @@ void main() {
 
     expect(blends.byId('ery-xyl'), isNull);
     expect(find.text('Erythritol xylitol'), findsNothing);
-    final attached = store.byId('blend-cookies')!.blends.single;
+    final attached = store.byId('blend-cookies')!.items.single as BlendLine;
     expect(attached.grams, 120);
     expect(attached.blend.name, 'Erythritol xylitol');
     expect(find.text('Blend cookies'), findsOneWidget);

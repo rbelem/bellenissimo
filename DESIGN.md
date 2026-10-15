@@ -179,6 +179,7 @@ Card corners 4px — nearly square, like real index cards. Row separators are 1p
 ### Editor Sheet
 - **Shape:** bottom sheet, 4px top radius, card face, 88% height
 - **Fields:** name (Courier input), pieces/grams SegmentedButton (selected = rule fill, onCard text), ingredient rows (name + amount + unit dropdown + remove), steps one-per-line
+- **Attached rows:** "Use a blend" appends a blend row (blend name + grams + remove); "Use a recipe" appends a recipe row (recipe name + "×" factor, empty is ×1 + remove); rows save in section order — ingredients, then blends, then recipe refs
 - **Custom ingredient scaling:** a line whose ingredient is not a seed gains a "scales ×" field on a row of its own — Courier, optional; empty is linear, 0.7 behaves like yeast. The pencil hint shows only while a custom line exists
 - **Save:** pinned below the scroll view — always visible; card-stock button (onSurface fill, ground text)
 - **Primary actions are card stock.** The FAB and Save render in the surface color with ground-colored content — never red. Red stays reserved.
@@ -218,19 +219,19 @@ Card corners 4px — nearly square, like real index cards. Row separators are 1p
 ### Compound Card
 - **What:** a dish assembled from parts — a layered cake of two batters, fillings, a topping — filed among the recipe cards, under no divider: a compound is a recipe that yields
 - **Shape:** the recipe card — 4px radius, card face, stacked-card shadow, scale slider, target line; a compound scales like any recipe, in one pass
-- **Order inside:** title (slab) → date (label, pencil) → lineage (Caveat) → part blocks in assembly order → total line (Courier 700) → yield line → target label + slider → numbered steps
-- **Part block:** a Caveat pencil part label carrying the part recipe's name ("batter A"), followed by that part's ruled Courier lines; consecutive references to the same recipe collapse into one counted block ("sponge × 3"); a part factor other than ×1 shows in pencil beside the label ("× 0.75")
-- **Component lines:** ruled quantity rows in Courier that roll on scale like any row; bare ingredient parts render as ordinary lines inside their block
-- **Total line:** the dish summed in grams, never red — size is a property, not a change
-- **Rule:** a compound renders from its own tree snapshot; a deleted part recipe's rows render from the card's copy, so nothing dangles
+- **Order inside:** title (slab) → date (label, pencil) → lineage (Caveat) → item blocks in stored order → total line (Courier 700) → yield line → target label + slider → numbered steps
+- **Part block:** a Caveat pencil part label carrying the part recipe's name ("batter A"), followed by that part's ruled Courier lines; consecutive references to the same recipe collapse into one counted block ("sponge × 3"); a part factor other than ×1 shows in pencil beside the label ("× 0.75"); a part's own blend uses render as attached rows inside the block, at their realized grams
+- **Component lines:** ruled quantity rows in Courier that roll on scale like any row; bare ingredient parts render as ordinary lines inside their block; blend uses render as attached blend rows in place
+- **Total line:** the dish summed in grams — realized lines plus blend uses — never red; unresolvable parts hide the total instead of guessing
+- **Rule:** a compound renders from its own item snapshots; a deleted part recipe's rows render from the card's copy, so nothing dangles
 
 ### Compound Editor Sheet
 - **Shape:** the editor sheet — bottom sheet, 4px top radius, card face, 88% height, pinned card-stock Save
 - **Kind:** chosen from the add sheet (Recipe / Sweetener blend / Flour mix / Compound dish) and fixed for the sheet's life
-- **Fields:** name (Courier input), a makes-N count field, then component rows in assembly order — a part row is a recipe picker + a Courier "×" factor field (empty is ×1) + remove; an ingredient row reuses the recipe line editor fields (name + amount + unit + remove)
-- **Add controls:** two pencil buttons — "Add part from recipes" and "Add ingredient line"
+- **Fields:** name (Courier input), pieces/grams SegmentedButton, then component rows in assembly order — a part row is a recipe picker + a Courier "×" factor field (empty is ×1) + remove; a blend row is a blend picker + grams + remove; an ingredient row reuses the recipe line editor fields (name + amount + unit + remove)
+- **Add controls:** three pencil buttons — "Add part from recipes", "Add blend", and "Add ingredient line"
 - **Readout:** a live Courier pencil line under the rows — "4 parts · ≈ 1.9 kg" — recomputing as rows and factors change; approximations stay visible at authoring time
-- **Rule:** the sheet edits the tree only; timestamps are set on save, never while previewing
+- **Rule:** the sheet edits the items only; timestamps are set on save, never while previewing
 
 ### Substitution Rows
 - **Trigger:** long-press a quantity row whose ingredient has a swap in the built-in seed-density table
@@ -244,7 +245,7 @@ Card corners 4px — nearly square, like real index cards. Row separators are 1p
 ### Recipe Filter
 - **Where:** pinned under the lid rule, above the card stack; it does not scroll away
 - **Style:** single-line TextField in Courier, search icon prefix, hint "Find a recipe"
-- **Behavior:** case-insensitive substring match on the recipe name and on compound part names, applied as you type; the list below builds lazily so a box of a thousand cards stays smooth
+- **Behavior:** case-insensitive substring match on the recipe name, on compound part names, and on blend names, applied as you type; the list below builds lazily so a box of a thousand cards stays smooth
 - **Empty state:** pencil annotation "No cards match …" when nothing matches (the box holds recipes and blends)
 
 ## Do's and Don'ts

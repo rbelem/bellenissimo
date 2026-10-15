@@ -56,10 +56,12 @@ class _RecipesPageState extends State<RecipesPage> {
       recipes = [
         for (final recipe in recipes)
           if (recipe.name.toLowerCase().contains(query) ||
-              recipe.lines.any(
-                (line) => line.ingredient.id.toLowerCase().contains(query),
+              recipe.items.any(
+                (item) =>
+                    item is RecipeLine &&
+                    item.ingredient.id.toLowerCase().contains(query),
               ) ||
-              compoundPartMatches(recipe, query))
+              compoundItemMatches(recipe, query))
             recipe,
       ];
       blends = [
@@ -205,7 +207,10 @@ class _RecipesPageState extends State<RecipesPage> {
     final id = record.blend.id;
     final usedIn = [
       for (final recipe in _recipes)
-        if (id != null && recipe.blends.any((line) => line.blend.id == id))
+        if (id != null &&
+            recipe.items.any(
+              (item) => item is BlendLine && item.blend.id == id,
+            ))
           recipe.name,
     ];
     if (!mounted) return;
@@ -255,7 +260,12 @@ class _RecipesPageState extends State<RecipesPage> {
 
   /// Creation and editing share one path: a null recipe creates.
   Future<void> _openCompoundEditor([Recipe? recipe]) async {
-    final saved = await showCompoundEditor(context, _store, recipe: recipe);
+    final saved = await showCompoundEditor(
+      context,
+      _store,
+      blends: _blendStore,
+      recipe: recipe,
+    );
     if (saved != null) setState(_reload);
   }
 

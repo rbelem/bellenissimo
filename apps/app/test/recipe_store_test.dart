@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:bellenissimos_app/persistence/recipe_codec.dart';
@@ -29,11 +30,12 @@ void main() {
       expect(restored.createdAt, DateTime(2026, 2, 1, 14));
       expect(restored.updatedAt, DateTime(2026, 2, 3, 9, 30));
       expect(restored.steps, eggFreeCookies.steps);
-      expect(restored.lines.length, 4);
-      expect(restored.lines[0].ingredient.id, 'flour');
-      expect(restored.lines[0].quantity.amount, 250);
-      expect(restored.lines[0].quantity.unit, Unit.g);
-      expect(restored.lines[3].ingredient.id, 'applesauce');
+      expect(restored.items, hasLength(4));
+      final items = restored.items;
+      expect((items[0] as RecipeLine).ingredient.id, 'flour');
+      expect((items[0] as RecipeLine).quantity.amount, 250);
+      expect((items[0] as RecipeLine).quantity.unit, Unit.g);
+      expect((items[3] as RecipeLine).ingredient.id, 'applesauce');
     });
 
     test('roundtrips a mass-only yield and undated recipe', () {
@@ -43,15 +45,16 @@ void main() {
       expect(restored.yield.count, isNull);
       expect(restored.yield.totalGrams, 900);
       expect(restored.createdAt, DateTime(2026, 1, 16, 8));
-      expect(restored.lines[1].ingredient.gramsPerMl, 1.0);
+      expect((restored.items[1] as RecipeLine).ingredient.gramsPerMl, 1.0);
     });
 
     test('keeps conversion data on ingredients', () {
       final restored = RecipeCodec.decodeDoc(
         RecipeCodec.encodeDoc(butterCookies),
       );
-      final eggLine =
-          restored.lines.firstWhere((l) => l.ingredient.id == 'egg');
+      final eggLine = restored.items.whereType<RecipeLine>().firstWhere(
+        (l) => l.ingredient.id == 'egg',
+      );
       expect(eggLine.ingredient.gramsPerPiece, 50);
       expect(eggLine.ingredient.roundingStep, 0.5);
       expect(eggLine.quantity.unit, Unit.piece);
@@ -61,12 +64,12 @@ void main() {
       const adHoc = Recipe(
         name: 'ad hoc',
         yield: YieldSpec(count: 1),
-        lines: [],
+        items: [],
       );
       final restored = RecipeCodec.decodeDoc(RecipeCodec.encodeDoc(adHoc));
       expect(restored.id, isNull);
       expect(restored.parentId, isNull);
-      expect(restored.lines, isEmpty);
+      expect(restored.items, isEmpty);
     });
   });
 
@@ -87,7 +90,7 @@ void main() {
       store.ensureSeeded(seedRecipes);
       final loaf = store.byId('sandwich-loaf')!;
       expect(loaf.yield.totalGrams, 900);
-      expect(loaf.lines.length, 3);
+      expect(loaf.items, hasLength(3));
       expect(loaf.steps.length, 4);
     });
 
@@ -139,8 +142,9 @@ void main() {
       final restored = store.byId('test-variant')!;
       expect(restored.parentId, 'butter-cookies');
       expect(restored.createdAt, DateTime(2026, 3, 1));
-      final eggLine =
-          restored.lines.firstWhere((l) => l.ingredient.id == 'egg');
+      final eggLine = restored.items.whereType<RecipeLine>().firstWhere(
+        (l) => l.ingredient.id == 'egg',
+      );
       expect(eggLine.ingredient.roundingStep, 0.5);
     });
 
@@ -162,7 +166,7 @@ void main() {
       yield: const YieldSpec(count: 1),
       createdAt: DateTime(2026, 1, 1),
       updatedAt: DateTime(2026, 1, 2),
-      lines: [
+      items: [
         RecipeLine(
           const Ingredient('flour', gramsPerMl: 0.6),
           Quantity(grams, Unit.g),
@@ -193,10 +197,12 @@ void main() {
 
       store.upsert(batter(name: 'Whole-wheat batter', grams: 600));
 
-      final ref =
-          store.byId('cake')!.tree!.components.single as ComponentRef;
+      final ref = store.byId('cake')!.items.single as ComponentRef;
       expect(ref.recipe.name, 'Whole-wheat batter');
-      expect(ref.recipe.lines.single.quantity.amount, 600);
+      expect(
+        (ref.recipe.items.single as RecipeLine).quantity.amount,
+        600,
+      );
       expect(ref.factor, 2);
     });
 
@@ -231,12 +237,13 @@ void main() {
       expect(store.byId('cake')!.name, 'Cake v2');
     });
 
-    test('a null-id recipe never matches a ref snapshot', () {
-      final store = RecipeStore.inMemory();
+    test('a null-id recipe never matches a ref snapshot', () {      final store = RecipeStore.inMemory();
       final dash = Recipe(
         name: 'Dash of salt',
         yield: const YieldSpec(count: 1),
-        lines: [RecipeLine(const Ingredient('salt'), const Quantity(5, Unit.g))],
+        items: [
+          RecipeLine(const Ingredient('salt'), const Quantity(5, Unit.g)),
+        ],
       );
       final cake = Recipe.compound(
         id: 'cake',
@@ -256,8 +263,75 @@ void main() {
       store.upsert(dash.copyWith(name: 'Fancy salt'));
 
       expect(idsOf(store), ['batter', 'cake', null]);
-      final components = store.byId('cake')!.tree!.components;
-      expect((components[1] as ComponentRef).recipe.name, 'Dash of salt');
+      final items = store.byId('cake')!.items;
+      expect((items[1] as ComponentRef).recipe.name, 'Dash of salt');
+    });
+
+    test('propagation walks a store holding a legacy tree doc', () {
+      Map<String, Object?> legacyBatter({String name = 'Batter'}) => {
+        'id': 'batter',
+        'name': name,
+        'parentId': null,
+        'yield': {'count': 1, 'totalGrams': null},
+        'createdAt': null,
+        'updatedAt': null,
+        'steps': const <String>[],
+        'lines': [
+          {
+            'ingredient': 'flour',
+            'gramsPerMl': 0.6,
+            'gramsPerPiece': null,
+            'roundingStep': null,
+            'scalingExponent': null,
+            'value': 500,
+            'unit': 'g',
+          },
+        ],
+        'blends': const [],
+      };
+      final legacyCake = {
+        'id': 'cake',
+        'name': 'Cake',
+        'parentId': null,
+        'yield': {'count': 1, 'totalGrams': null},
+        'createdAt': null,
+        'updatedAt': null,
+        'steps': const <String>[],
+        'lines': const [],
+        'blends': const [],
+        'tree': {
+          'name': 'Cake',
+          'components': [
+            {'ref': legacyBatter(), 'factor': 2},
+          ],
+        },
+      };
+      final dir = Directory.systemTemp.createTempSync('bellenissimos-legacy-');
+      addTearDown(() => dir.deleteSync(recursive: true));
+      File('${dir.path}/recipes.json').writeAsStringSync(
+        jsonEncode({
+          'recipes': [legacyBatter(), legacyCake],
+        }),
+      );
+      final store = RecipeStore.open('${dir.path}/recipes.json');
+
+      store.upsert(
+        Recipe(
+          id: 'batter',
+          name: 'Whole-wheat batter',
+          yield: const YieldSpec(count: 1),
+          items: [
+            RecipeLine(
+              const Ingredient('flour', gramsPerMl: 0.6),
+              const Quantity(600, Unit.g),
+            ),
+          ],
+        ),
+      );
+
+      final ref = store.byId('cake')!.items.single as ComponentRef;
+      expect(ref.recipe.name, 'Whole-wheat batter');
+      expect(ref.factor, 2);
     });
   });
 

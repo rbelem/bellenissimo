@@ -48,8 +48,8 @@ void main() {
 
     expect(find.text('Sesame bread'), findsOneWidget);
     final imported = byId(store, 'sesame-bread')!;
-    expect(imported.lines.length, 3);
-    expect(imported.lines[0].quantity.amount, 400);
+    expect(imported.items, hasLength(3));
+    expect((imported.items[0] as RecipeLine).quantity.amount, 400);
     expect(imported.steps, ['mix', 'bake']);
     expect(imported.createdAt, isNotNull);
     expect(store.all().length, 4);

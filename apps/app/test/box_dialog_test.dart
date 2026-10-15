@@ -15,7 +15,7 @@ Recipe _cake() => Recipe(
   id: 'fudgy-cake',
   name: 'Fudgy cake',
   yield: const YieldSpec(count: 8),
-  lines: [
+  items: [
     RecipeLine(
       const Ingredient('cocoa', gramsPerMl: 0.42),
       const Quantity(30, Unit.g),
@@ -67,7 +67,7 @@ void main() {
     expect(files, hasLength(1));
     final doc = files.single.readAsStringSync();
     expect(doc, contains('Butter cookies'));
-    expect(doc, contains('"version": 3'));
+    expect(doc, contains('"version": $boxVersion'));
     expect(find.textContaining('Box exported'), findsOneWidget);
   });
 

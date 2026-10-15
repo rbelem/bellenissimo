@@ -233,12 +233,7 @@ class RecipeCard extends StatelessWidget {
                 ),
               ..._familyLines(context, raw),
               const SizedBox(height: 8),
-              if (raw.isCompound)
-                ..._compoundSection(context, scaled, prefix)
-              else ...[
-                ..._lines(context, scaled, prefix),
-                ..._blendLines(context, scaled, prefix),
-              ],
+              ..._compoundSection(context, scaled, prefix),
               Padding(
                 padding: const EdgeInsets.only(top: 12),
                 child: rollIn(
@@ -345,15 +340,6 @@ class RecipeCard extends StatelessWidget {
     );
   }
 
-  List<Widget> _lines(BuildContext context, Recipe recipe, String prefix) => [
-    for (final line in recipe.lines)
-      rollIn(
-        context,
-        '${_displayQuantity(line)} ${line.ingredient.id}',
-        _lineTile(context, line, prefix),
-      ),
-  ];
-
   Quantity _displayGrams(double grams) {
     final quantity = Quantity(grams, Unit.g);
     return massUnit == MassUnit.oz ? quantity.convertTo(Unit.oz) : quantity;
@@ -362,23 +348,17 @@ class RecipeCard extends StatelessWidget {
   /// Attached blends ride the recipe's scale pass: the collapsed row
   /// shows the scaled grams, expanded parts recompute from it in one
   /// pass, display rounding only — no part rounding step ever applies.
-  List<Widget> _blendLines(
+  /// A top-level blend uses the plain row key; a part's blend takes an
+  /// explicit key so collapsed refs never share one.
+  Widget _blendTile(
     BuildContext context,
-    Recipe scaled,
-    String prefix,
-  ) => [
-    for (final line in scaled.blends)
-      rollIn(
-        context,
-        '${quantityText(_displayGrams(line.grams))} ${line.blend.name}',
-        _blendTile(context, line, prefix),
-      ),
-  ];
-
-  Widget _blendTile(BuildContext context, BlendLine line, String prefix) {
+    BlendLine line,
+    String prefix, {
+    String? keyOverride,
+  }) {
     final tokens = Theme.of(context).extension<BoxTokens>()!;
     final blend = line.blend;
-    final rowKey = '$prefix-line-${blend.id ?? blend.name}';
+    final rowKey = keyOverride ?? '$prefix-line-${blend.id ?? blend.name}';
     final open = openBlendRows.contains(rowKey);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -475,18 +455,21 @@ class RecipeCard extends StatelessWidget {
     return parts;
   }
 
-  /// Compound content between lineage and yield: part blocks in assembly
-  /// order, then the dish total — Courier 700, never red, because size
-  /// is a property of the card, not a change.
+  /// Every item in display order: leaf lines render as plain rows,
+  /// blend uses as attached rows, ref runs collapse into part blocks.
+  /// Plain recipes render exactly their old rows. A compound adds the
+  /// dish total — Courier 700, never red, because size is a property of
+  /// the card, not a change.
   List<Widget> _compoundSection(
     BuildContext context,
     Recipe scaled,
     String prefix,
   ) {
-    final blocks = compoundBlocks(scaled.tree!);
-    final totalGrams = dishGrams(blocks);
+    final blocks = compoundBlocks(scaled.items);
+    final totalGrams = scaled.isCompound ? dishGrams(blocks) : null;
     return [
-      ..._partBlocks(context, blocks, prefix),
+      for (var b = 0; b < blocks.length; b++)
+        ..._block(context, blocks[b], b, prefix),
       if (totalGrams != null)
         Padding(
           padding: const EdgeInsets.only(top: 12),
@@ -502,47 +485,79 @@ class RecipeCard extends StatelessWidget {
     ];
   }
 
-  List<Widget> _partBlocks(
-    BuildContext context,
-    List<CompoundBlock> blocks,
-    String prefix,
-  ) => [
-    for (var b = 0; b < blocks.length; b++)
-      ..._partBlock(context, blocks[b], b, prefix),
-  ];
-
-  /// A part block: the Caveat label carrying the part recipe's name —
-  /// with the collapse count and a non-×1 factor penciled beside it —
-  /// over that part's ruled Courier lines.
-  List<Widget> _partBlock(
+  List<Widget> _block(
     BuildContext context,
     CompoundBlock block,
     int b,
     String prefix,
+  ) => switch (block) {
+    LeafBlock(:final line) => [
+      rollIn(
+        context,
+        '${_displayQuantity(line)} ${line.ingredient.id}',
+        _lineTile(context, line, prefix),
+      ),
+    ],
+    BlendBlock(:final line) => [
+      rollIn(
+        context,
+        '${quantityText(_displayGrams(line.grams))} ${line.blend.name}',
+        _blendTile(context, line, prefix),
+      ),
+    ],
+    RefBlock() => _partBlock(context, block, b, prefix),
+  };
+
+  /// A part block: the Caveat label carrying the part recipe's name —
+  /// with the collapse count and a non-×1 factor penciled beside it —
+  /// over that part's ruled Courier lines, then the part's own blend
+  /// uses at their realized grams.
+  List<Widget> _partBlock(
+    BuildContext context,
+    RefBlock block,
+    int b,
+    String prefix,
   ) {
-    final part = block.recipe;
     final rows = _blockRows(block);
     return [
-      if (part != null)
-        Padding(
-          padding: const EdgeInsets.only(left: 8, top: 6),
-          child: Text(
-            _blockLabel(block),
-            key: ValueKey('$prefix-comp-$b-label'),
-            style: boxAnnotation(context),
-          ),
+      Padding(
+        padding: const EdgeInsets.only(left: 8, top: 6),
+        child: Text(
+          _blockLabel(block),
+          key: ValueKey('$prefix-comp-$b-label'),
+          style: boxAnnotation(context),
         ),
+      ),
       for (final row in rows)
         rollIn(
           context,
           row.text,
           _ruledRow(context, '$prefix-comp-$b-line-${row.key}', row.text),
         ),
+      for (var r = 0; r < block.refs.length; r++)
+        for (final blend in _refBlends(block.refs[r]))
+          rollIn(
+            context,
+            '${quantityText(_displayGrams(blend.grams))} ${blend.blend.name}',
+            _blendTile(
+              context,
+              blend,
+              prefix,
+              keyOverride:
+                  '$prefix-comp-$b-ref-$r-${blend.blend.id ?? blend.blend.name}',
+            ),
+          ),
     ];
   }
 
-  String _blockLabel(CompoundBlock block) {
-    final name = block.recipe!.name;
+  /// One ref's blend uses at their realized grams, in item order.
+  List<BlendLine> _refBlends(ComponentRef ref) => [
+    for (final item in ref.recipe.scaledBy(ref.factor).items)
+      if (item is BlendLine) item,
+  ];
+
+  String _blockLabel(RefBlock block) {
+    final name = block.recipe.name;
     final suffixes = [
       if (block.count > 1) '× ${block.count}',
       if (block.factor != 1 && block.factor != block.count)
@@ -554,21 +569,16 @@ class RecipeCard extends StatelessWidget {
   String _factorText(double factor) =>
       factor % 1 == 0 ? factor.round().toString() : '$factor';
 
-  ({String key, String text}) _leafRow(RecipeLine line) => (
-    key: line.ingredient.id,
-    text: '${quantityText(_displayQuantity(line))} ${line.ingredient.id}',
-  );
-
   /// One rendering pass per ref (`scaledBy` exactly once, so a rounding
   /// step applies with the full ref factor), summed per ingredient for
-  /// display only. Bare leaves ride through untouched.
-  List<({String key, String text})> _blockRows(CompoundBlock block) {
-    if (block.recipe == null) {
-      return [for (final line in block.leaves) _leafRow(line)];
-    }
+  /// display only. A part's own blend uses render as attached rows, not
+  /// here; a nested ref's lines stay out of the sum.
+  List<({String key, String text})> _blockRows(RefBlock block) {
     final sums = <String, ({Unit unit, double amount})>{};
     for (final ref in block.refs) {
-      for (final line in ref.recipe.scaledBy(ref.factor).lines) {
+      for (final item in ref.recipe.scaledBy(ref.factor).items) {
+        if (item is! RecipeLine) continue;
+        final line = item;
         final id = line.ingredient.id;
         final prev = sums[id];
         sums[id] = prev == null

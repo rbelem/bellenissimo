@@ -39,7 +39,7 @@ class _RecipeImportDialogState extends State<RecipeImportDialog> {
       id: id,
       name: imported.name,
       yield: imported.yield,
-      lines: imported.lines,
+      items: imported.items,
       steps: imported.steps,
       createdAt: now,
       updatedAt: now,

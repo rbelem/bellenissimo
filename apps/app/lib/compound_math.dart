@@ -1,21 +1,16 @@
 import 'package:bellenissimos_core/core.dart';
 
-/// One rendered group of a compound tree. Consecutive refs to the same
-/// part recipe collapse into one counted block; bare leaves render as
-/// label-less blocks at their position in assembly order.
-class CompoundBlock {
-  const CompoundBlock.ref(this.recipe, this.refs) : leaves = const [];
+/// One rendered group of a recipe's items, in display order.
+sealed class CompoundBlock {
+  const CompoundBlock();
+}
 
-  const CompoundBlock.leaf(this.leaves)
-      : recipe = null,
-        refs = const [];
+/// Consecutive refs to the same part recipe, collapsed for display.
+class RefBlock extends CompoundBlock {
+  const RefBlock(this.recipe, this.refs);
 
-  /// The part recipe of a ref block; null for a bare leaf block.
-  final Recipe? recipe;
-
+  final Recipe recipe;
   final List<ComponentRef> refs;
-
-  final List<RecipeLine> leaves;
 
   int get count => refs.length;
 
@@ -24,31 +19,48 @@ class CompoundBlock {
   double get factor => refs.fold(0.0, (sum, ref) => sum + ref.factor);
 }
 
+/// One bare ingredient line, in place.
+class LeafBlock extends CompoundBlock {
+  const LeafBlock(this.line);
+
+  final RecipeLine line;
+}
+
+/// One blend use, in place.
+class BlendBlock extends CompoundBlock {
+  const BlendBlock(this.line);
+
+  final BlendLine line;
+}
+
 bool _samePart(Recipe a, Recipe b) =>
     identical(a, b) || (a.id != null && a.id == b.id);
 
-/// Groups a tree's components into blocks: consecutive refs to the same
-/// recipe join one block, every other component splits it.
-List<CompoundBlock> compoundBlocks(RecipeTree tree) {
+/// Groups a recipe's items into blocks: consecutive refs to the same
+/// recipe join one block, every other item splits it.
+List<CompoundBlock> compoundBlocks(List<RecipeItem> items) {
   final blocks = <CompoundBlock>[];
   var open = <ComponentRef>[];
   void flush() {
     if (open.isEmpty) return;
-    blocks.add(CompoundBlock.ref(open.first.recipe, List.of(open)));
+    blocks.add(RefBlock(open.first.recipe, List.of(open)));
     open = [];
   }
 
-  for (final component in tree.components) {
-    switch (component) {
-      case ComponentLeaf(:final line):
+  for (final item in items) {
+    switch (item) {
+      case RecipeLine():
         flush();
-        blocks.add(CompoundBlock.leaf([line]));
+        blocks.add(LeafBlock(item));
+      case BlendLine():
+        flush();
+        blocks.add(BlendBlock(item));
       case ComponentRef():
-        if (open.isEmpty || _samePart(open.first.recipe, component.recipe)) {
-          open.add(component);
+        if (open.isEmpty || _samePart(open.first.recipe, item.recipe)) {
+          open.add(item);
         } else {
           flush();
-          open = [component];
+          open = [item];
         }
     }
   }
@@ -60,24 +72,33 @@ List<CompoundBlock> compoundBlocks(RecipeTree tree) {
 /// unit needs — the caller never guesses.
 double? lineGrams(RecipeLine line) => line.quantity.gramsOf(line.ingredient);
 
-/// Grams a rendered block displays, summed from its realized lines, so
-/// the card total agrees with the rows above it. Null when any line
-/// lacks a bridge.
-double? blockGrams(CompoundBlock block) {
-  if (block.recipe == null) return _linesGrams(block.leaves);
+/// Grams a rendered block displays: realized lines plus blend uses, so
+/// the card total agrees with the rows above it. Null when any part
+/// lacks a bridge — a partial total would be a guess.
+double? blockGrams(CompoundBlock block) => switch (block) {
+  LeafBlock(:final line) => lineGrams(line),
+  BlendBlock(:final line) => line.grams,
+  RefBlock(:final refs) => _refsGrams(refs),
+};
+
+double? _refsGrams(List<ComponentRef> refs) {
   var sum = 0.0;
-  for (final ref in block.refs) {
-    final grams = _linesGrams(ref.recipe.scaledBy(ref.factor).lines);
+  for (final ref in refs) {
+    final grams = _realizedGrams(ref.recipe.scaledBy(ref.factor));
     if (grams == null) return null;
     sum += grams;
   }
   return sum;
 }
 
-double? _linesGrams(Iterable<RecipeLine> lines) {
+double? _realizedGrams(Recipe realized) {
   var sum = 0.0;
-  for (final line in lines) {
-    final grams = lineGrams(line);
+  for (final item in realized.items) {
+    final grams = switch (item) {
+      RecipeLine() => lineGrams(item),
+      BlendLine() => item.grams,
+      ComponentRef() => null,
+    };
     if (grams == null) return null;
     sum += grams;
   }
@@ -104,15 +125,17 @@ double? refGrams(ComponentRef ref) {
 }
 
 /// Authoring-time estimate behind the editor readout: leaf lines
-/// bridged plus each ref's declared yield × factor. Null when any
-/// component is unresolvable — the readout then shows the parts count
-/// only, never a guess.
-double? compoundEstimateGrams(RecipeTree tree) {
+/// bridged, blend uses at face grams, plus each ref's declared yield ×
+/// factor. Null when any item is unresolvable — the readout then shows
+/// the parts count only, never a guess.
+double? compoundEstimateGrams(List<RecipeItem> items) {
   var sum = 0.0;
-  for (final component in tree.components) {
-    final grams = switch (component) {
-      ComponentLeaf(:final line) => lineGrams(line),
-      ComponentRef() => refGrams(component),
+  for (final item in items) {
+    final grams = switch (item) {
+      RecipeLine(:final quantity, :final ingredient) =>
+        quantity.gramsOf(ingredient),
+      BlendLine(:final grams) => grams,
+      ComponentRef() => refGrams(item),
     };
     if (grams == null) return null;
     sum += grams;
@@ -120,14 +143,13 @@ double? compoundEstimateGrams(RecipeTree tree) {
   return sum;
 }
 
-/// Filter clause for compounds: a part recipe's name matches
-/// case-insensitively; plain recipes match nothing here.
-bool compoundPartMatches(Recipe recipe, String query) =>
-    recipe.tree?.components.any(
-          (component) =>
-              component is ComponentRef &&
-              component.recipe.name
-                  .toLowerCase()
-                  .contains(query.toLowerCase()),
-        ) ??
-    false;
+/// Filter clause for unified items: a part recipe's name or a blend's
+/// name matches case-insensitively; other recipes match nothing here.
+bool compoundItemMatches(Recipe recipe, String query) =>
+    recipe.items.any(
+      (item) =>
+          (item is ComponentRef &&
+              item.recipe.name.toLowerCase().contains(query.toLowerCase())) ||
+          (item is BlendLine &&
+              item.blend.name.toLowerCase().contains(query.toLowerCase())),
+    );

@@ -44,7 +44,7 @@ BlendRecord _breadMix() => BlendRecord(
 
 Recipe _recipeWith(Blend blend) => butterCookies.copyWith(
   id: 'blend-cookies',
-  blends: [BlendLine(blend, 120)],
+  items: [BlendLine(blend, 120)],
 );
 
 void main() {
@@ -153,7 +153,7 @@ void main() {
       );
       store.upsertBlend(renamed);
 
-      final line = recipes.byId('blend-cookies')!.blends.single;
+      final line = recipes.byId('blend-cookies')!.items.single as BlendLine;
       expect(line.grams, 120);
       expect(line.blend.name, 'Ery xyl v2');
       expect(line.blend.totalGrams, 200);
@@ -164,6 +164,37 @@ void main() {
       store.upsertBlend(_erythritolXylitol(id: 'ery-xyl'));
 
       expect(RecipeCodec.encode(recipes.byId('sandwich-loaf')!), before);
+    });
+
+    test('upsertBlend reaches a blend use inside a compound', () {
+      final record = _erythritolXylitol(id: 'ery-xyl');
+      final cake = Recipe.compound(
+        id: 'cake',
+        name: 'Cake',
+        yield: const YieldSpec(count: 1),
+        tree: RecipeTree(
+          name: 'Cake',
+          components: [BlendLine(record.blend, 40)],
+        ),
+      );
+      recipes.upsert(cake);
+      final renamed = SweetenerBlend(
+        id: 'ery-xyl',
+        name: 'Ery xyl v2',
+        grams: {
+          const Ingredient('erythritol'): 100,
+          const Ingredient('xylitol'): 100,
+        },
+        sweetnessPerGram: {
+          const Ingredient('erythritol'): 0.7,
+          const Ingredient('xylitol'): 1.0,
+        },
+      );
+      store.upsertBlend(BlendRecord(blend: renamed));
+
+      final line = recipes.byId('cake')!.items.single as BlendLine;
+      expect(line.grams, 40);
+      expect(line.blend.name, 'Ery xyl v2');
     });
 
     test(
@@ -177,7 +208,7 @@ void main() {
 
         expect(store.byId('ery-xyl'), isNull);
         expect(
-          recipes.byId('blend-cookies')!.blends.single.blend.name,
+          (recipes.byId('blend-cookies')!.items.single as BlendLine).blend.name,
           'Erythritol xylitol',
         );
       },
