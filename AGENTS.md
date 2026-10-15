@@ -36,6 +36,9 @@ and tests on every push and PR.
   ref factor (snapshot untouched); the one `scaledBy` pass happens at
   realization (`recipe.scaledBy(ref.factor)`), and `replaceRecipe` swaps
   stay magnitude-preserving.
+- Unified items: a recipe holds one ordered `items` list (ingredient
+  lines, blend uses, recipe refs). `isCompound` derives from holding a
+  ref; the box is at version 4 (v1-v3 still decode).
 - `YieldSpec.factorTo` takes exactly one target and throws on zero or two.
 - Derivatives: a child sets `parentId`; listing is computed via `RecipeBook`
   (parents are never mutated). `replaceRecipe(originalId, replacement)`
