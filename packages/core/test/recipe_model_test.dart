@@ -10,7 +10,7 @@ void main() {
     id: 'butter-cookies',
     name: 'butter cookies',
     yield: const YieldSpec(count: 24),
-    lines: [line],
+    items: [line],
     steps: const ['cream butter and sugar', 'fold in flour', 'pipe and bake'],
     createdAt: created,
     updatedAt: updated,
@@ -18,12 +18,12 @@ void main() {
 
   group('recipe identity, steps, and timestamps', () {
     test('steps default to empty', () {
-      const bare = Recipe(name: 'x', yield: YieldSpec(), lines: []);
+      const bare = Recipe(name: 'x', yield: YieldSpec(), items: []);
       expect(bare.steps, isEmpty);
     });
 
     test('identity and timestamps default to null', () {
-      const bare = Recipe(name: 'x', yield: YieldSpec(), lines: []);
+      const bare = Recipe(name: 'x', yield: YieldSpec(), items: []);
       expect(bare.id, isNull);
       expect(bare.parentId, isNull);
       expect(bare.createdAt, isNull);
@@ -50,7 +50,7 @@ void main() {
       expect(derived.id, 'butter-cookies');
       expect(derived.name, 'butter cookies');
       expect(derived.yield, base.yield);
-      expect(derived.lines, base.lines);
+      expect(derived.items, base.items);
       expect(derived.createdAt, created);
     });
 
@@ -85,12 +85,12 @@ void main() {
       id: 'sandwich-loaf',
       name: 'sandwich loaf',
       yield: const YieldSpec(totalGrams: 900),
-      lines: const [],
+      items: const [],
     );
     final anonymous = Recipe(
       name: 'butter cookies',
       yield: const YieldSpec(count: 24),
-      lines: [line],
+      items: [line],
       parentId: 'butter-cookies',
     );
 
@@ -126,8 +126,8 @@ void main() {
     });
 
     test('multiple recipes without ids are allowed', () {
-      final a = const Recipe(name: 'a', yield: YieldSpec(), lines: []);
-      final b = const Recipe(name: 'b', yield: YieldSpec(), lines: []);
+      final a = const Recipe(name: 'a', yield: YieldSpec(), items: []);
+      final b = const Recipe(name: 'b', yield: YieldSpec(), items: []);
       expect(() => RecipeBook([a, b]), returnsNormally);
     });
   });

@@ -10,11 +10,20 @@ Recipe _recipe({
       id: id,
       name: 'muffins',
       yield: const YieldSpec(count: 12),
-      lines: lines,
-      blends: blends,
+      items: [...lines, ...blends],
       createdAt: DateTime(2026),
       updatedAt: DateTime(2026),
     );
+
+List<BlendLine> blendsOf(Recipe recipe) => [
+  for (final item in recipe.items)
+    if (item is BlendLine) item,
+];
+
+List<RecipeLine> linesOf(Recipe recipe) => [
+  for (final item in recipe.items)
+    if (item is RecipeLine) item,
+];
 
 void main() {
   const sugar = Ingredient('sugar');
@@ -40,7 +49,7 @@ void main() {
 
   group('Recipe blends', () {
     test('a recipe without blends defaults to an empty list', () {
-      expect(_recipe(id: 'r1').blends, isEmpty);
+      expect(blendsOf(_recipe(id: 'r1')), isEmpty);
     });
 
     test('attaching a blend does not change yield or timestamps', () {
@@ -54,12 +63,12 @@ void main() {
       final b = blend(id: 'berry-1');
       final original = _recipe(blends: [BlendLine(b, 50)]);
       final scaled = original.scaledBy(2);
-      expect(scaled.blends.single.blend, same(b));
-      expect(scaled.blends.single.grams, 100);
+      expect(blendsOf(scaled).single.blend, same(b));
+      expect(blendsOf(scaled).single.grams, 100);
       expect(scaled.yield.count, 24);
-      expect(original.blends.single.grams, 50);
+      expect(blendsOf(original).single.grams, 50);
       expect(original.yield.count, 12);
-      expect(original.blends, isNot(same(scaled.blends)));
+      expect(original.items, isNot(same(scaled.items)));
     });
 
     test('blend lines never apply a rounding step', () {
@@ -68,18 +77,18 @@ void main() {
         blends: [BlendLine(blend(), 10)],
       );
       final scaled = original.scaledBy(2.37);
-      expect(scaled.lines.single.quantity.amount, 2.5);
-      expect(scaled.blends.single.grams, 10 * 2.37);
+      expect(linesOf(scaled).single.quantity.amount, 2.5);
+      expect(blendsOf(scaled).single.grams, 10 * 2.37);
     });
 
     test('copyWith replaces blends and preserves everything else', () {
       final original = _recipe(id: 'r1', blends: [BlendLine(blend(), 10)]);
-      final next = original.copyWith(blends: [BlendLine(blend(), 20)]);
-      expect(next.blends.single.grams, 20);
+      final next = original.copyWith(items: [BlendLine(blend(), 20)]);
+      expect(blendsOf(next).single.grams, 20);
       expect(next.id, 'r1');
       expect(next.name, 'muffins');
       expect(next.yield.count, 12);
-      expect(original.blends.single.grams, 10);
+      expect(blendsOf(original).single.grams, 10);
     });
   });
 
@@ -92,15 +101,16 @@ void main() {
         blends: [BlendLine(b, 50), BlendLine(b, 30)],
       );
       final replaced = original.replaceBlend('berry-1', replacement);
-      expect(replaced.blends[0].blend, same(replacement));
-      expect(replaced.blends[0].grams, 50);
-      expect(replaced.blends[1].blend, same(replacement));
-      expect(replaced.blends[1].grams, 30);
+      final swapped = blendsOf(replaced);
+      expect(swapped[0].blend, same(replacement));
+      expect(swapped[0].grams, 50);
+      expect(swapped[1].blend, same(replacement));
+      expect(swapped[1].grams, 30);
       expect(replaced.id, 'r1');
       expect(replaced.yield.count, 12);
       expect(replaced.createdAt, original.createdAt);
       expect(replaced.updatedAt, original.updatedAt);
-      expect(original.blends[0].blend, same(b));
+      expect(blendsOf(original)[0].blend, same(b));
     });
 
     test('a null-id blend never matches a replacement walk', () {
@@ -132,15 +142,15 @@ void main() {
       final replacement = blend(id: 'berry-1', name: 'new berry');
       final next = book.replacingBlend('berry-1', replacement);
 
-      expect(next.byId('r1')!.blends.single.blend, same(replacement));
-      expect(next.byId('r1')!.blends.single.grams, 50);
-      expect(next.byId('r2')!.blends.single.blend, same(replacement));
-      expect(next.byId('r2')!.blends.single.grams, 30);
+      expect(blendsOf(next.byId('r1')!).single.blend, same(replacement));
+      expect(blendsOf(next.byId('r1')!).single.grams, 50);
+      expect(blendsOf(next.byId('r2')!).single.blend, same(replacement));
+      expect(blendsOf(next.byId('r2')!).single.grams, 30);
       expect(next.byId('r3'), same(bystander));
       expect(next.byId('r4'), same(adHocHolder));
       expect(next.recipes.length, 4);
-      expect(book.byId('r1')!.blends.single.blend, same(b));
-      expect(book.byId('r1')!.blends.single.grams, 50);
+      expect(blendsOf(book.byId('r1')!).single.blend, same(b));
+      expect(blendsOf(book.byId('r1')!).single.grams, 50);
     });
 
     test('a book without the blend reuses every recipe by identity', () {

@@ -15,7 +15,7 @@ void main() {
         'recipeIngredient': ['200 g flour'],
       });
       expect(result.ok, isTrue);
-      final line = result.recipe!.lines.single;
+      final line = (result.recipe!.items.single as RecipeLine);
       expect(line.quantity.amount, 200);
       expect(line.quantity.unit, Unit.g);
       expect(line.ingredient, seedIngredients['flour']);
@@ -28,7 +28,7 @@ void main() {
         'recipeYield': '1 cake',
         'recipeIngredient': ['1 cup sugar'],
       });
-      final line = result.recipe!.lines.single;
+      final line = (result.recipe!.items.single as RecipeLine);
       expect(line.quantity, const Quantity(1, Unit.cup));
       expect(line.ingredient.gramsPerMl, 0.83);
     });
@@ -39,7 +39,7 @@ void main() {
         'recipeYield': '1 serving',
         'recipeIngredient': ['2 eggs'],
       });
-      final line = result.recipe!.lines.single;
+      final line = (result.recipe!.items.single as RecipeLine);
       expect(line.quantity, const Quantity(2, Unit.piece));
       expect(line.ingredient.id, 'eggs');
       expect(line.ingredient.gramsPerPiece, isNull);
@@ -51,7 +51,7 @@ void main() {
         'recipeYield': '24 cookies',
         'recipeIngredient': ['1½ tsp vanilla'],
       });
-      final line = result.recipe!.lines.single;
+      final line = (result.recipe!.items.single as RecipeLine);
       expect(line.quantity, const Quantity(1.5, Unit.tsp));
       expect(line.ingredient.id, 'vanilla');
     });
@@ -62,7 +62,7 @@ void main() {
         'recipeYield': '1 bowl',
         'recipeIngredient': ['½ cup milk'],
       });
-      expect(result.recipe!.lines.single.quantity, const Quantity(0.5, Unit.cup));
+      expect((result.recipe!.items.single as RecipeLine).quantity, const Quantity(0.5, Unit.cup));
     });
 
     test('decimal amount with kg and seed ingredient', () {
@@ -71,8 +71,8 @@ void main() {
         'recipeYield': '24 pieces',
         'recipeIngredient': ['0.5 kg butter'],
       });
-      expect(result.recipe!.lines.single.quantity, const Quantity(0.5, Unit.kg));
-      expect(result.recipe!.lines.single.ingredient.gramsPerMl, 0.95);
+      expect((result.recipe!.items.single as RecipeLine).quantity, const Quantity(0.5, Unit.kg));
+      expect((result.recipe!.items.single as RecipeLine).ingredient.gramsPerMl, 0.95);
     });
 
     test('dash range takes the first value', () {
@@ -81,7 +81,7 @@ void main() {
         'recipeYield': '6 servings',
         'recipeIngredient': ['2-3 cups oats'],
       });
-      final line = result.recipe!.lines.single;
+      final line = (result.recipe!.items.single as RecipeLine);
       expect(line.quantity, const Quantity(2, Unit.cup));
       expect(line.ingredient.id, 'oats');
     });
@@ -92,7 +92,7 @@ void main() {
         'recipeYield': '2 bowls',
         'recipeIngredient': ['1 to 2 cups oats'],
       });
-      expect(result.recipe!.lines.single.quantity, const Quantity(1, Unit.cup));
+      expect((result.recipe!.items.single as RecipeLine).quantity, const Quantity(1, Unit.cup));
     });
 
     test('two-word unit alias', () {
@@ -101,8 +101,8 @@ void main() {
         'recipeYield': '1 bottle',
         'recipeIngredient': ['1 fl oz milk'],
       });
-      expect(result.recipe!.lines.single.quantity, const Quantity(1, Unit.flOz));
-      expect(result.recipe!.lines.single.ingredient.gramsPerMl, 1.02);
+      expect((result.recipe!.items.single as RecipeLine).quantity, const Quantity(1, Unit.flOz));
+      expect((result.recipe!.items.single as RecipeLine).ingredient.gramsPerMl, 1.02);
     });
 
     test('unknown unit skips the line with an issue', () {
@@ -133,7 +133,7 @@ void main() {
         'recipeYield': '2 servings',
         'recipeIngredient': ['300 g dinosaur fruit'],
       });
-      final line = result.recipe!.lines.single;
+      final line = (result.recipe!.items.single as RecipeLine);
       expect(line.ingredient.id, 'dinosaur_fruit');
       expect(line.ingredient.gramsPerMl, isNull);
       expect(line.quantity, const Quantity(300, Unit.g));
@@ -158,7 +158,7 @@ void main() {
       }));
       expect(result.ok, isTrue);
       expect(result.recipe!.name, 'Choc Chip Cookies');
-      expect(result.recipe!.lines, hasLength(2));
+      expect(result.recipe!.items, hasLength(2));
     });
 
     test('matches "@type" given as a list', () {
@@ -168,7 +168,7 @@ void main() {
         'recipeIngredient': ['1 l milk'],
       }));
       expect(result.ok, isTrue);
-      expect(result.recipe!.lines.single.ingredient.id, 'milk');
+      expect((result.recipe!.items.single as RecipeLine).ingredient.id, 'milk');
     });
 
     test('matches "@type" case-insensitively', () {
@@ -334,7 +334,7 @@ void main() {
       expect(result.ok, isTrue);
       expect(result.recipe!.name, 'Choc Chip Cookies');
       expect(result.recipe!.yield.count, 24);
-      expect(result.recipe!.lines, hasLength(4));
+      expect(result.recipe!.items, hasLength(4));
       expect(result.issues, isEmpty);
     });
 

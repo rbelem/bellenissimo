@@ -8,7 +8,7 @@ void main() {
   final crust = Recipe(
     name: 'pie crust',
     yield: const YieldSpec(totalGrams: 300),
-    lines: [
+    items: [
       const RecipeLine(Ingredient('flour', gramsPerMl: 0.5), Quantity(200, Unit.g)),
       const RecipeLine(Ingredient('butter', gramsPerMl: 0.95), Quantity(100, Unit.g)),
     ],
@@ -17,7 +17,7 @@ void main() {
   final sponge = Recipe(
     name: 'sponge',
     yield: const YieldSpec(count: 1),
-    lines: [
+    items: [
       const RecipeLine(Ingredient('flour', gramsPerMl: 0.5), Quantity(250, Unit.g)),
       RecipeLine(eggsSnapped, const Quantity(1, Unit.piece)),
     ],
@@ -26,7 +26,7 @@ void main() {
   final filling = Recipe(
     name: 'filling',
     yield: const YieldSpec(totalGrams: 200),
-    lines: [
+    items: [
       const RecipeLine(Ingredient('cream', gramsPerMl: 1.0), Quantity(200, Unit.g)),
     ],
   );
@@ -34,7 +34,7 @@ void main() {
   final topping = Recipe(
     name: 'ganache',
     yield: const YieldSpec(totalGrams: 150),
-    lines: [
+    items: [
       const RecipeLine(Ingredient('chocolate', gramsPerMl: 1.3), Quantity(150, Unit.g)),
     ],
   );
@@ -43,9 +43,7 @@ void main() {
     test('scaling a pie accumulates the ref factor and scales the leaf line', () {
       final pie = RecipeTree(name: 'apple pie', components: [
         ComponentRef(crust, factor: 1.0),
-        const ComponentLeaf(
-          RecipeLine(Ingredient('apple', gramsPerMl: 0.6), Quantity(400, Unit.g)),
-        ),
+        const RecipeLine(Ingredient('apple', gramsPerMl: 0.6), Quantity(400, Unit.g)),
       ]);
 
       final scaled = pie.scaledBy(0.5);
@@ -56,18 +54,16 @@ void main() {
       expect(ref.recipe, same(crust));
       final effective = ref.recipe.scaledBy(ref.factor);
       expect(effective.yield.totalGrams, 150);
-      expect(effective.lines[0].quantity.amount, 100);
-      expect(effective.lines[1].quantity.amount, 50);
-      final leaf = scaled.components[1] as ComponentLeaf;
-      expect(leaf.line.quantity.amount, 200);
+      expect((effective.items[0] as RecipeLine).quantity.amount, 100);
+      expect((effective.items[1] as RecipeLine).quantity.amount, 50);
+      final leaf = scaled.components[1] as RecipeLine;
+      expect(leaf.quantity.amount, 200);
     });
 
     test('scaledBy keeps each ref recipe the same instance and multiplies the factor', () {
       final tree = RecipeTree(name: 'torte', components: [
         ComponentRef(crust, factor: 1.5),
-        const ComponentLeaf(
-          RecipeLine(Ingredient('apple', gramsPerMl: 0.6), Quantity(400, Unit.g)),
-        ),
+        const RecipeLine(Ingredient('apple', gramsPerMl: 0.6), Quantity(400, Unit.g)),
       ]);
 
       final scaled = tree.scaledBy(2.0);
@@ -75,7 +71,7 @@ void main() {
       final ref = scaled.components[0] as ComponentRef;
       expect(ref.recipe, same(crust));
       expect(ref.factor, 3.0);
-      expect(crust.lines[0].quantity.amount, 200);
+      expect((crust.items[0] as RecipeLine).quantity.amount, 200);
     });
 
     test('a ref ingredient with a rounding step rounds once, not twice', () {
@@ -89,14 +85,14 @@ void main() {
       expect(ref.factor, 0.6);
       expect(ref.recipe, same(sponge));
       final effective = ref.recipe.scaledBy(ref.factor);
-      expect(effective.lines[1].quantity.amount, 0.5);
+      expect((effective.items[1] as RecipeLine).quantity.amount, 0.5);
     });
 
     test('a sub-linear leavening exponent applies once with the compound factor', () {
       const leavened = Recipe(
         name: 'sponge',
         yield: YieldSpec(count: 1),
-        lines: [
+        items: [
           RecipeLine(
             Ingredient('yeast', gramsPerMl: 0.6, scalingExponent: 0.7),
             Quantity(10, Unit.g),
@@ -113,7 +109,7 @@ void main() {
       expect(ref.factor, 4.0);
       expect(ref.recipe, same(leavened));
       final effective = ref.recipe.scaledBy(ref.factor);
-      expect(effective.lines.single.quantity.amount, closeTo(26.39, 0.01));
+      expect((effective.items.single as RecipeLine).quantity.amount, closeTo(26.39, 0.01));
     });
   });
 
@@ -153,9 +149,9 @@ void main() {
 
       final ref = cake.components.first as ComponentRef;
       final effective = ref.recipe.scaledBy(ref.factor);
-      expect(effective.lines[0].quantity.amount, 375);
-      expect(effective.lines[1].quantity.amount, 1.5);
-      expect(ref.recipe.lines[0].quantity.amount, 250);
+      expect((effective.items[0] as RecipeLine).quantity.amount, 375);
+      expect((effective.items[1] as RecipeLine).quantity.amount, 1.5);
+      expect((ref.recipe.items[0] as RecipeLine).quantity.amount, 250);
     });
 
     test('a cake without topping has no topping ref', () {
@@ -202,7 +198,7 @@ void main() {
       expect((half.components[3] as ComponentRef).factor, 0.5);
       expect((half.components[5] as ComponentRef).factor, 0.5);
       final eggRef = half.components[0] as ComponentRef;
-      expect(eggRef.recipe.lines[1].quantity.amount, 1.0);
+      expect((eggRef.recipe.items[1] as RecipeLine).quantity.amount, 1.0);
     });
   });
 
@@ -211,7 +207,7 @@ void main() {
       id: 'cookies',
       name: 'butter cookies',
       yield: const YieldSpec(count: 24),
-      lines: [
+      items: [
         const RecipeLine(
           Ingredient('butter', gramsPerMl: 0.95),
           Quantity(200, Unit.g),
@@ -224,7 +220,7 @@ void main() {
       parentId: 'cookies',
       name: 'egg-free cookies',
       yield: const YieldSpec(count: 24, totalGrams: 480),
-      lines: [
+      items: [
         const RecipeLine(
           Ingredient('flax gel', gramsPerMl: 1.0),
           Quantity(30, Unit.g),
@@ -237,7 +233,7 @@ void main() {
       id: 'shortening',
       name: 'shortening cookies',
       yield: const YieldSpec(count: 24),
-      lines: [
+      items: [
         const RecipeLine(
           Ingredient('shortening', gramsPerMl: 0.9),
           Quantity(200, Unit.g),
@@ -264,9 +260,7 @@ void main() {
     test('replaces every matching ref, leaves others and leaves untouched', () {
       final tree = RecipeTree(name: 'cookie pyramid', components: [
         ComponentRef(butterCookies, factor: 1.0),
-        const ComponentLeaf(
-          RecipeLine(Ingredient('sugar', gramsPerMl: 0.85), Quantity(100, Unit.g)),
-        ),
+        const RecipeLine(Ingredient('sugar', gramsPerMl: 0.85), Quantity(100, Unit.g)),
         ComponentRef(butterCookies, factor: 0.5),
         ComponentRef(shortening, factor: 1.0),
       ]);
@@ -279,9 +273,9 @@ void main() {
         same(eggFreeCookies),
       );
       expect((replaced.components[0] as ComponentRef).factor, 1.0);
-      expect(replaced.components[1], isA<ComponentLeaf>());
+      expect(replaced.components[1], isA<RecipeLine>());
       expect(
-        (replaced.components[1] as ComponentLeaf).line.quantity.amount,
+        (replaced.components[1] as RecipeLine).quantity.amount,
         100,
       );
       expect(
@@ -298,9 +292,7 @@ void main() {
     test('no matching ref returns an equal-structure tree', () {
       final tree = RecipeTree(name: 'cookie box', components: [
         ComponentRef(shortening, factor: 2.0),
-        const ComponentLeaf(
-          RecipeLine(Ingredient('salt'), Quantity(1, Unit.g)),
-        ),
+        const RecipeLine(Ingredient('salt'), Quantity(1, Unit.g)),
       ]);
 
       final replaced = tree.replaceRecipe('cookies', eggFreeCookies);
@@ -312,7 +304,7 @@ void main() {
         same(shortening),
       );
       expect((replaced.components[0] as ComponentRef).factor, 2.0);
-      expect(replaced.components[1], isA<ComponentLeaf>());
+      expect(replaced.components[1], isA<RecipeLine>());
       expect(replaced.components, isNot(same(tree.components)));
     });
 
@@ -329,7 +321,7 @@ void main() {
       expect(ref.recipe.yield.count, 24);
       expect(ref.recipe.yield.totalGrams, 480);
       expect(ref.recipe.steps, ['bloom flax', 'mix', 'chill']);
-      expect(ref.recipe.lines.single.quantity.amount, 30);
+      expect((ref.recipe.items.single as RecipeLine).quantity.amount, 30);
       expect(ref.factor, 3.0);
     });
 
@@ -337,7 +329,7 @@ void main() {
       final anonymous = Recipe(
         name: 'ad-hoc cookies',
         yield: const YieldSpec(count: 24),
-        lines: [
+        items: [
           const RecipeLine(
             Ingredient('butter', gramsPerMl: 0.95),
             Quantity(200, Unit.g),

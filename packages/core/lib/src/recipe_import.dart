@@ -165,7 +165,7 @@ RecipeImportResult _importRecipeNode(Map<dynamic, dynamic> node) {
     Recipe(
       name: name,
       yield: yieldSpec ?? const YieldSpec(),
-      lines: lines,
+      items: lines,
       steps: steps,
     ),
     issues,

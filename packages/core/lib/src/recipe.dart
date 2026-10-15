@@ -3,7 +3,6 @@ import 'dart:math' as math;
 import 'blend.dart';
 import 'ingredient.dart';
 import 'quantity.dart';
-import 'recipe_tree.dart';
 
 /// How much a recipe makes, in user-meaningful dimensions.
 ///
@@ -19,8 +18,20 @@ class YieldSpec {
   final double? totalGrams;
 }
 
+/// One item of a [Recipe]: an ingredient line, a blend use, or a
+/// reference to another recipe.
+///
+/// The seal forces every consumer to handle all three kinds. Each kind
+/// carries its own scaling rule, applied exactly once per [scaledBy]
+/// pass (the single-rounding rule).
+sealed class RecipeItem {
+  const RecipeItem();
+
+  RecipeItem scaledBy(num factor);
+}
+
 /// One ingredient and how much of it a [Recipe] needs.
-class RecipeLine {
+class RecipeLine extends RecipeItem {
   const RecipeLine(this.ingredient, this.quantity);
 
   final Ingredient ingredient;
@@ -31,6 +42,7 @@ class RecipeLine {
   /// whole tins). The exponent and the rounding step apply exactly once
   /// per scale pass; the default exponent of 1 scales bit-for-bit like
   /// plain multiplication.
+  @override
   RecipeLine scaledBy(num factor) {
     final exponent = ingredient.scalingExponent ?? 1.0;
     final scaled =
@@ -46,26 +58,26 @@ class RecipeLine {
 /// Scaling multiplies [grams] exactly. Per-gram blend ratios are
 /// scale-invariant, so no rounding step ever applies here — snapping a
 /// scaled blend line would compound with the recipe-level rounding rule.
-class BlendLine {
+class BlendLine extends RecipeItem {
   const BlendLine(this.blend, this.grams);
 
   final Blend blend;
   final double grams;
 
+  @override
   BlendLine scaledBy(num factor) => BlendLine(blend, grams * factor);
 }
 
-/// An immutable recipe: lines plus what it yields.
+/// An immutable recipe: items plus what it yields.
 ///
-/// Scaling never mutates; [scaledBy] returns a new recipe and the
-/// original stays untouched.
+/// An item is an ingredient line, a blend use, or a reference to
+/// another recipe, in display order. Scaling never mutates; [scaledBy]
+/// returns a new recipe and the original stays untouched.
 class Recipe {
   const Recipe({
     required this.name,
     required this.yield,
-    required this.lines,
-    this.blends = const [],
-    this.tree,
+    required this.items,
     this.id,
     this.parentId,
     this.steps = const [],
@@ -90,23 +102,18 @@ class Recipe {
 
   final String name;
   final YieldSpec yield;
-  final List<RecipeLine> lines;
 
-  /// Blends attached at line altitude. Adding one never infers yield or
+  /// Every item in display order: ingredient lines, blend uses, and
+  /// references to other recipes. Adding one never infers yield or
   /// timestamps; both stay caller-set.
-  final List<BlendLine> blends;
+  final List<RecipeItem> items;
 
-  /// The component tree of a compound dish (a layered cake, a filled pie).
-  /// Null for a plain recipe; when set, [lines] and [blends] stay empty —
-  /// use [Recipe.compound] to build one. Ref snapshots stay untouched by
-  /// scaling (see [RecipeTree.scaledBy]); realization is the caller's
-  /// single [scaledBy] pass per ref.
-  final RecipeTree? tree;
+  /// True when this recipe references another recipe. A recipe holding
+  /// only ingredient lines and blends is never compound.
+  bool get isCompound => items.any((item) => item is ComponentRef);
 
-  /// True when this recipe's content is a [RecipeTree] rather than lines.
-  bool get isCompound => tree != null;
-
-  /// A compound dish whose content is [tree]; lines and blends stay empty.
+  /// A compound dish whose content is [tree]; the tree's components
+  /// become this recipe's items, in order.
   factory Recipe.compound({
     required String name,
     required YieldSpec yield,
@@ -120,9 +127,7 @@ class Recipe {
       Recipe(
         name: name,
         yield: yield,
-        lines: const [],
-        blends: const [],
-        tree: tree,
+        items: tree.components,
         id: id,
         parentId: parentId,
         steps: steps,
@@ -135,9 +140,7 @@ class Recipe {
   Recipe copyWith({
     String? name,
     YieldSpec? yield,
-    List<RecipeLine>? lines,
-    List<BlendLine>? blends,
-    RecipeTree? tree,
+    List<RecipeItem>? items,
     String? id,
     String? parentId,
     List<String>? steps,
@@ -147,9 +150,7 @@ class Recipe {
       Recipe(
         name: name ?? this.name,
         yield: yield ?? this.yield,
-        lines: lines ?? this.lines,
-        blends: blends ?? this.blends,
-        tree: tree ?? this.tree,
+        items: items ?? this.items,
         id: id ?? this.id,
         parentId: parentId ?? this.parentId,
         steps: steps ?? this.steps,
@@ -178,9 +179,8 @@ class Recipe {
   }
 
   /// Returns the recipe scaled by [factor]. Yield dimensions scale too;
-  /// rounding steps and scaling exponents on ingredients are applied
-  /// per line, exactly once. A compound's tree scales with the recipe:
-  /// ref factors accumulate, snapshots stay untouched.
+  /// every item scales by its own rule, exactly once. A ref's factor
+  /// accumulates while its snapshot stays untouched.
   Recipe scaledBy(num factor) => Recipe(
         name: name,
         yield: YieldSpec(
@@ -188,40 +188,130 @@ class Recipe {
           totalGrams:
               yield.totalGrams == null ? null : yield.totalGrams! * factor,
         ),
-        lines: [for (final line in lines) line.scaledBy(factor)],
-        blends: [for (final line in blends) line.scaledBy(factor)],
-        tree: tree?.scaledBy(factor),
+        items: [for (final item in items) item.scaledBy(factor)],
       );
 
-  /// Returns a copy where the tree's refs to [originalId] point at
+  /// Returns a copy where every ref to [originalId] points at
   /// [replacement], each factor preserved — the same swap as
-  /// [RecipeTree.replaceRecipe] at recipe altitude. Returns this when the
-  /// tree is null or holds no ref with that id, so callers can skip
-  /// upserts via [identical]; timestamps stay caller-set.
+  /// [RecipeTree.replaceRecipe] at recipe altitude. Returns this when no
+  /// item holds that id, so callers can skip upserts via [identical];
+  /// timestamps stay caller-set.
   Recipe replaceRecipe(String originalId, Recipe replacement) {
-    final current = tree;
-    if (current == null) return this;
-    if (!current.components.any(
-      (component) =>
-          component is ComponentRef && component.recipe.id == originalId,
+    if (!items.any(
+      (item) => item is ComponentRef && item.recipe.id == originalId,
     )) {
       return this;
     }
-    return copyWith(tree: current.replaceRecipe(originalId, replacement));
-  }
-
-  /// Returns a copy where every blend line whose blend has [blendId]
-  /// points at [replacement], keeping each line's attached grams — the
-  /// factors-preserved rule, at blend altitude. Returns this identically
-  /// when nothing matches, so callers can skip upserts via [identical];
-  /// a blend with a null id never matches.
-  Recipe replaceBlend(String blendId, Blend replacement) {
-    if (!blends.any((line) => line.blend.id == blendId)) return this;
     return copyWith(
-      blends: [
-        for (final line in blends)
-          line.blend.id == blendId ? BlendLine(replacement, line.grams) : line,
+      items: [
+        for (final item in items)
+          item is ComponentRef && item.recipe.id == originalId
+              ? ComponentRef(replacement, factor: item.factor)
+              : item,
       ],
     );
   }
+
+  /// Returns a copy where every blend use whose blend has [blendId]
+  /// points at [replacement], keeping each use's grams. Returns this
+  /// identically when nothing matches, so callers can skip upserts via
+  /// [identical]; a blend with a null id never matches.
+  Recipe replaceBlend(String blendId, Blend replacement) {
+    if (!items.any(
+      (item) => item is BlendLine && item.blend.id == blendId,
+    )) {
+      return this;
+    }
+    return copyWith(
+      items: [
+        for (final item in items)
+          item is BlendLine && item.blend.id == blendId
+              ? BlendLine(replacement, item.grams)
+              : item,
+      ],
+    );
+  }
+}
+
+/// A whole sub-recipe used as one item. [recipe] must declare a yield
+/// of exactly one unit of the component (one crust, one filling batch);
+/// [factor] adapts it to this build.
+///
+/// Scaling accumulates the factor and leaves the snapshot untouched, so
+/// a later [Recipe.replaceRecipe] swap preserves the dish's magnitude.
+class ComponentRef extends RecipeItem {
+  const ComponentRef(this.recipe, {required this.factor});
+
+  final Recipe recipe;
+  final double factor;
+
+  @override
+  ComponentRef scaledBy(num factor) =>
+      ComponentRef(recipe, factor: factor * this.factor);
+}
+
+/// A dish assembled from items: a pie is a crust plus a filling,
+/// a layered cake is stacked sponge and filling refs.
+class RecipeTree {
+  const RecipeTree({required this.name, required this.components});
+
+  final String name;
+  final List<RecipeItem> components;
+
+  /// Returns a new tree where every [ComponentRef] whose recipe has
+  /// [originalId] points at [replacement] with the same factor, so a
+  /// derivative (e.g. an egg-free variant) can stand in for the original
+  /// inside a compound dish. Refs whose recipe has a null id never match;
+  /// factors are untouched — scaling stays [scaledBy]'s job.
+  RecipeTree replaceRecipe(String originalId, Recipe replacement) =>
+      RecipeTree(
+        name: name,
+        components: [
+          for (final component in components)
+            switch (component) {
+              RecipeLine() => component,
+              BlendLine() => component,
+              ComponentRef(recipe: final recipe, factor: final factor) =>
+                recipe.id == originalId
+                    ? ComponentRef(replacement, factor: factor)
+                    : component,
+            },
+        ],
+      );
+
+  /// Scales every item through its own [RecipeItem.scaledBy] rule, in
+  /// exactly one pass.
+  RecipeTree scaledBy(num factor) => RecipeTree(
+        name: name,
+        components: [
+          for (final component in components) component.scaledBy(factor),
+        ],
+      );
+}
+
+/// Builds an N-layer cake: one sponge ref per layer, one filling ref
+/// between adjacent layers, and the topping on top when given.
+///
+/// [sponge] must yield one layer, [filling] the filling between two
+/// adjacent layers, [topping] one cake's top. [spongeFactorPerLayer] is
+/// the pan-volume ratio of the target pan.
+RecipeTree layeredCake({
+  required Recipe sponge,
+  required Recipe filling,
+  Recipe? topping,
+  required int layers,
+  required double spongeFactorPerLayer,
+}) {
+  if (layers < 2) {
+    throw ArgumentError('A layered cake needs at least two layers');
+  }
+  return RecipeTree(
+    name: 'layered cake ($layers layers)',
+    components: [
+      for (var i = 0; i < layers; i++)
+        ComponentRef(sponge, factor: spongeFactorPerLayer),
+      for (var i = 0; i < layers - 1; i++) ComponentRef(filling, factor: 1.0),
+      if (topping != null) ComponentRef(topping, factor: 1.0),
+    ],
+  );
 }
